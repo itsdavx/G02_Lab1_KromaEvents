@@ -1,4 +1,4 @@
-// Error con código HTTP: el servicio o el controlador lo lanzan y errorHandler lo responde
+// Error con código HTTP que errorHandler convierte en respuesta JSON
 class HttpError extends Error {
   constructor(status, message) {
     super(message);

@@ -1,9 +1,9 @@
 const { Router } = require("express");
 const eventoRoutes = require("./evento.routes");
 
-// Archivo principal de rutas: cada recurso se monta en su propio prefijo
+// Monta cada recurso bajo su prefijo dentro de /api
 const router = Router();
 
-router.use("/eventos", eventoRoutes); // → /api/eventos
+router.use("/eventos", eventoRoutes);
 
 module.exports = router;

@@ -1,12 +1,9 @@
 const Evento = require("../models/evento.model");
 const HttpError = require("../utils/httpError");
 
-// SERVICIO: reglas de negocio y acceso a datos a través del modelo.
-// Lanza HttpError (400, 404) cuando una regla no se cumple. En el Lab 2 este archivo
-// usará Prisma; el controlador y las rutas no cambian.
+// Servicio: validaciones y reglas de negocio; lanza HttpError 400 o 404
 
-// Devuelve un mensaje de error o null si los datos son válidos.
-// partial = true en PUT: valida solo los campos que llegan.
+// Devuelve el primer error encontrado o null; con partial solo revisa los campos recibidos (PUT)
 const validate = (data, { partial = false } = {}) => {
   const debeValidar = (campo) => !partial || data[campo] !== undefined;
 
@@ -33,29 +30,49 @@ const validate = (data, { partial = false } = {}) => {
   return null;
 };
 
-// ✅ Ya resuelto: úsalo como guía
+// Lista todos los eventos
 const list = () => Evento.readAll();
 
-// ✅ Ya resuelto
+// Busca un evento por id; 404 si no existe
 const getById = async (id) => {
   const item = (await Evento.readAll()).find((e) => e.id === id);
   if (!item) throw new HttpError(404, "Evento no encontrado");
   return item;
 };
 
-// TODO Paso 2: valida (400), genera el id (máximo + 1), agrega el registro con Evento.pick, guarda y devuélvelo
+// Valida, asigna el id (máximo + 1) y guarda el evento
 const create = async (data) => {
-  throw new HttpError(501, "create() pendiente en el servicio");
+  const error = validate(data);
+  if (error) throw new HttpError(400, error);
+
+  const items = await Evento.readAll();
+  const id = items.reduce((max, e) => Math.max(max, e.id), 0) + 1;
+  const item = { id, ...Evento.pick(data) };
+  items.push(item);
+  await Evento.writeAll(items);
+  return item;
 };
 
-// TODO Paso 2: valida con { partial: true } (400); si el id no existe lanza 404; mezcla los campos, guarda y devuélvelo
+// Valida los campos recibidos y actualiza el evento; 404 si no existe
 const update = async (id, data) => {
-  throw new HttpError(501, "update() pendiente en el servicio");
+  const error = validate(data, { partial: true });
+  if (error) throw new HttpError(400, error);
+
+  const items = await Evento.readAll();
+  const index = items.findIndex((e) => e.id === id);
+  if (index === -1) throw new HttpError(404, "Evento no encontrado");
+
+  items[index] = { ...items[index], ...Evento.pick(data), id };
+  await Evento.writeAll(items);
+  return items[index];
 };
 
-// TODO Paso 2: elimina por id; si no existía lanza 404
+// Elimina un evento por id; 404 si no existe
 const remove = async (id) => {
-  throw new HttpError(501, "remove() pendiente en el servicio");
+  const items = await Evento.readAll();
+  const restantes = items.filter((e) => e.id !== id);
+  if (restantes.length === items.length) throw new HttpError(404, "Evento no encontrado");
+  await Evento.writeAll(restantes);
 };
 
 module.exports = { list, getById, create, update, remove };

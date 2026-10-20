@@ -1,13 +1,13 @@
 const { Router } = require("express");
 const eventoController = require("../controllers/evento.controller");
 
-// RUTAS: conectan cada verbo + URL con una acción del controlador
+// Rutas CRUD de /api/eventos
 const router = Router();
 
-// ✅ Ya resueltas
 router.get("/", eventoController.list);
 router.get("/:id", eventoController.getById);
-
-// TODO Paso 2: agrega POST "/" → create, PUT "/:id" → update y DELETE "/:id" → remove
+router.post("/", eventoController.create);
+router.put("/:id", eventoController.update);
+router.delete("/:id", eventoController.remove);
 
 module.exports = router;

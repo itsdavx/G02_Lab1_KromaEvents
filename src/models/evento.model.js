@@ -1,16 +1,15 @@
 const { readFile, writeFile } = require("node:fs/promises");
 
-// MODELO: la forma de los datos (campos) y dónde se guardan (archivo JSON).
-// En el Lab 2 este archivo desaparece: el modelo pasa a prisma/schema.prisma.
+// Modelo Evento: campos permitidos y persistencia en archivo JSON
 const FILE = process.env.DATA_FILE || "data/eventos.json";
 
-// Campos de la entidad Evento (el id lo genera el servicio)
+// El id lo asigna el servicio
 const FIELDS = ["nombre", "fecha", "lugar", "capacidad", "precio"];
 
 const readAll = async () => JSON.parse(await readFile(FILE, "utf8"));
 const writeAll = (items) => writeFile(FILE, JSON.stringify(items, null, 2));
 
-// Copia solo los campos permitidos (evita que guarden propiedades extrañas)
+// Conserva solo los campos definidos en FIELDS
 const pick = (data) =>
   Object.fromEntries(FIELDS.filter((k) => data[k] !== undefined).map((k) => [k, data[k]]));
 
