@@ -1,46 +1,60 @@
 const eventoService = require("../services/evento.service");
 const HttpError = require("../utils/httpError");
 
-// CONTROLADOR: lee la petición (params, body), llama al servicio y decide código + JSON.
-// No lee archivos ni valida reglas de negocio. Los errores van a next(err) → errorHandler.
+// Controlador: delega en el servicio y responde con el código HTTP; los errores van a errorHandler
 
+// Convierte :id a número; 400 si no es numérico
 const parseId = (req) => {
   const id = Number.parseInt(req.params.id, 10);
   if (Number.isNaN(id)) throw new HttpError(400, "El id debe ser numérico");
   return id;
 };
 
-// ✅ Ya resuelto: GET / → 200
+// GET / → 200
 const list = async (req, res, next) => {
   try {
-    res.json(await eventoService.list()); // 200
+    res.json(await eventoService.list());
   } catch (err) {
     next(err);
   }
 };
 
-// ✅ Ya resuelto: GET /:id → 200 (el servicio lanza 404 si no existe)
+// GET /:id → 200
 const getById = async (req, res, next) => {
   try {
-    res.json(await eventoService.getById(parseId(req))); // 200
+    res.json(await eventoService.getById(parseId(req)));
   } catch (err) {
     next(err);
   }
 };
 
-// TODO Paso 2: POST / → llama a eventoService.create(req.body ?? {}) y responde 201 con el registro
+// POST / → 201 con el evento creado
 const create = async (req, res, next) => {
-  next(new HttpError(501, "create pendiente en el controlador"));
+  try {
+    const item = await eventoService.create(req.body ?? {});
+    res.status(201).json(item);
+  } catch (err) {
+    next(err);
+  }
 };
 
-// TODO Paso 2: PUT /:id → llama a eventoService.update(parseId(req), req.body ?? {}) y responde 200
+// PUT /:id → 200 con el evento actualizado
 const update = async (req, res, next) => {
-  next(new HttpError(501, "update pendiente en el controlador"));
+  try {
+    res.json(await eventoService.update(parseId(req), req.body ?? {}));
+  } catch (err) {
+    next(err);
+  }
 };
 
-// TODO Paso 2: DELETE /:id → llama a eventoService.remove(parseId(req)) y responde 204 sin cuerpo (res.status(204).end())
+// DELETE /:id → 204 sin cuerpo
 const remove = async (req, res, next) => {
-  next(new HttpError(501, "remove pendiente en el controlador"));
+  try {
+    await eventoService.remove(parseId(req));
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = { list, getById, create, update, remove };

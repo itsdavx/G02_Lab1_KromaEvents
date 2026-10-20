@@ -1,4 +1,4 @@
-// SERVER: solo levanta el servidor. La configuración de Express vive en app.js
+// Punto de entrada: carga .env e inicia el servidor
 require("dotenv").config();
 const app = require("./app");
 
