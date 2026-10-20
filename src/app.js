@@ -1,7 +1,7 @@
 /*
  * Laboratorio 1 · Mini-API MVC con CRUD
  * Desarrollo Web Avanzado (A0R04) · ESPE
- * Grupo: G03 · Emprendimiento: KromaEvents
+ * Grupo: G02 · Emprendimiento: KromaEvents
  * Integrantes: Bonilla Caiza David Alejandro,
  *              Villa Andrango José Daniel,
  *              Quiroz Herrera María Laura,
