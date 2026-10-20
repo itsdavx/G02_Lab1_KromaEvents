@@ -60,12 +60,14 @@ Flujo de una petición: **ruta → controlador → servicio → modelo** y de vu
 | Integrante | Qué hizo (archivos / pasos) |
 |---|---|
 | Bonilla Caiza David Alejandro | **Paso 1 · Proyecto, propuesta y modelo.** Completó los datos del grupo en la cabecera de `src/app.js` y en `README.md`. Redactó `PROPUESTA.md` (nombre, problema, usuarios, 3 funciones, 3 entidades Evento–Cliente–Reserva y 3 endpoints) y elaboró el mapa frontend–backend (`mapa.png`). Eligió la entidad principal **Evento** y renombró `product` → `evento` en modelo, servicio, controlador, rutas, el prefijo `/api/eventos` de `routes/index.js`, `data/eventos.json` (3 registros de ejemplo) y `.env.example`. Definió `FIELDS` (nombre, fecha, lugar, capacidad, precio) en `src/models/evento.model.js` y programó `validate()` en `src/services/evento.service.js` con 5 validaciones. |
-| Villa Andrango José Daniel | |
+| Villa Andrango José Daniel | **Paso 3 · Middlewares y códigos HTTP.** Programó `src/middlewares/logger.js`, que registra hora, verbo, ruta, código de estado y duración de cada petición, y lo ubicó antes de `express.json()` en `src/app.js` para registrar también las peticiones con JSON mal formado. Completó `src/middlewares/errorHandler.js`: JSON mal formado responde 400 y un error 500 responde «Error interno del servidor», con `err.stack` solo fuera de producción. Verificó que una ruta inexistente responde 404 en JSON y que ningún error responde 200. Tomó la captura `evidencias/logger.png`. |
 | Quiroz Herrera María Laura | |
 | Sánchez Verduga Julio Esteban | **Paso 2 · Servicio, controlador y rutas CRUD.** Completó `create`, `update` y `remove` en `src/services/evento.service.js` (validación con 400, 404 si el id no existe, lectura y escritura del JSON mediante el modelo). Completó `create` (201), `update` (200) y `remove` (204) en `src/controllers/evento.controller.js`, delegando en el servicio y pasando los errores a `next(err)`. Conectó `router.post`, `router.put` y `router.delete` en `src/routes/evento.routes.js`, llenó la tabla «Endpoints» de este README y probó cada endpoint con sus códigos 200, 201, 204, 400 y 404. |
 
 ## Declaración de uso de IA
 
-- Herramienta(s) usada(s): Claude (Anthropic).
-- Para qué la usamos (consultar, depurar, explicar un error…): para corregir algunos errores en los endpoints durante el Paso 2.
+- Herramienta(s) usada(s): Claude (Anthropic) y Gemini (Google).
+- Para qué la usamos (consultar, depurar, explicar un error…):
+  - Paso 2 (Sánchez Verduga Julio Esteban): Claude, para corregir algunos errores en los endpoints.
+  - Paso 3 (Villa Andrango José Daniel): Claude, para corregir algunos errores de código y sintaxis en los middlewares que no lograba ver a simple vista; y Gemini, para mejorar la redacción de su aporte en este README.
 - Qué verificamos o corregimos nosotros: revisamos cada corrección sugerida antes de aplicarla y probamos los endpoints para confirmar que respondieran con los códigos esperados (200, 201, 204, 400 y 404).

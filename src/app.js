@@ -16,9 +16,9 @@ const errorHandler = require("./middlewares/errorHandler");
 
 const app = express();
 
-// Middlewares globales: parseo de JSON y registro de peticiones
-app.use(express.json());
+// Middlewares globales: el logger va primero para registrar también las peticiones con JSON mal formado
 app.use(logger);
+app.use(express.json());
 
 // Rutas de la API bajo /api
 app.get("/", (req, res) => res.json({ api: "Lab 1 · Mini-API MVC", estado: "ok" }));
