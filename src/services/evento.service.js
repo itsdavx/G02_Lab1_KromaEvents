@@ -72,12 +72,15 @@ const remove = async (id) => {
   if (count === 0) throw new HttpError(404, "Evento no encontrado");
 };
 
-// TODO Paso 4 · TRANSACCIÓN: crea todos los registros o ninguno.
-// prisma.$transaction(async (tx) => { ... }) — dentro usa tx.evento.create, NO prisma.evento.create.
-// Valida cada ítem DENTRO de la transacción y, si uno falla, lanza
-// new HttpError(400, `Ítem ${i + 1}: ...`) → Prisma hace ROLLBACK de lo ya creado.
-const createMany = async (items) => {
-  throw new HttpError(501, "createMany() pendiente en el servicio");
-};
+const createMany = (items) =>
+  prisma.$transaction(async (tx) => {
+    const created = [];
+    for (const [i, data] of items.entries()) {
+      const error = validate(data);
+      if (error) throw new HttpError(400, `Ítem ${i + 1}: ${error}`);
+      created.push(await tx.evento.create({ data: pick(data) }));
+    }
+    return created;
+  });
 
 module.exports = { list, getById, create, update, remove, createMany };
