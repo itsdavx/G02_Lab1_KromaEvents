@@ -1,0 +1,36 @@
+// Lab 2 · Persistencia con Prisma + PostgreSQL
+// Grupo: G02 · Emprendimiento: KromaEvents
+// Cada model es una tabla; cada campo, una columna. Tras cualquier cambio: npx prisma migrate dev --name <cambio> y luego npx prisma generate
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Prisma 7: la URL ya no va aquí; está en prisma.config.ts
+datasource db {
+  provider = "postgresql"
+}
+
+// Entidad principal: los mismos campos del Lab 1 (nombre, fecha, lugar, capacidad, precio)
+model Evento {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @unique @db.VarChar(120)
+  fecha     DateTime @db.Date
+  lugar     String   @db.VarChar(150)
+  capacidad Int
+  precio    Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("eventos")
+}
+
+// Segunda entidad del modelo ER, todavía sin relación (las relaciones llegan en el Lab 3)
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nombres   String   @db.VarChar(100)
+  correo    String   @unique @db.VarChar(120)
+  telefono  String?  @db.VarChar(15)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("clientes")
+}
