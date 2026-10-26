@@ -1,8 +1,13 @@
-const Evento = require("../models/evento.model");
+const prisma = require("../db/prisma");
 const HttpError = require("../utils/httpError");
 
-// Servicio: validaciones y reglas de negocio; lanza HttpError 400 o 404
+// SERVICIO (Lab 2): misma interfaz que en el Lab 1, pero ahora persiste con Prisma.
+// El modelo ya no es un archivo .js: es el model Evento de prisma/schema.prisma.
+// El controlador y las rutas no cambian (salvo la nueva ruta /lote).
 
+const FIELDS = ["nombre", "fecha", "lugar", "capacidad", "precio"];
+
+// Las validaciones de negocio siguen aquí: Prisma valida tipos, no reglas como precio >= 0
 // Devuelve el primer error encontrado o null; con partial solo revisa los campos recibidos (PUT)
 const validate = (data, { partial = false } = {}) => {
   const debeValidar = (campo) => !partial || data[campo] !== undefined;
@@ -30,49 +35,49 @@ const validate = (data, { partial = false } = {}) => {
   return null;
 };
 
-// Lista todos los eventos
-const list = () => Evento.readAll();
+// Copia solo los campos permitidos (evita que guarden propiedades extrañas)
+const pick = (data) => {
+  const item = Object.fromEntries(FIELDS.filter((k) => data[k] !== undefined).map((k) => [k, data[k]]));
+  if (item.fecha !== undefined) item.fecha = new Date(item.fecha);
+  return item;
+};
+
+const list = () => prisma.evento.findMany({ orderBy: { id: "asc" } });
 
 // Busca un evento por id; 404 si no existe
 const getById = async (id) => {
-  const item = (await Evento.readAll()).find((e) => e.id === id);
+  const item = await prisma.evento.findUnique({ where: { id } });
   if (!item) throw new HttpError(404, "Evento no encontrado");
   return item;
 };
 
-// Valida, asigna el id (máximo + 1) y guarda el evento
+// Si el valor @unique se repite, Prisma lanza P2002 y errorHandler responde 409.
 const create = async (data) => {
   const error = validate(data);
   if (error) throw new HttpError(400, error);
 
-  const items = await Evento.readAll();
-  const id = items.reduce((max, e) => Math.max(max, e.id), 0) + 1;
-  const item = { id, ...Evento.pick(data) };
-  items.push(item);
-  await Evento.writeAll(items);
-  return item;
+  return prisma.evento.create({ data: pick(data) });
 };
 
-// Valida los campos recibidos y actualiza el evento; 404 si no existe
 const update = async (id, data) => {
   const error = validate(data, { partial: true });
   if (error) throw new HttpError(400, error);
 
-  const items = await Evento.readAll();
-  const index = items.findIndex((e) => e.id === id);
-  if (index === -1) throw new HttpError(404, "Evento no encontrado");
-
-  items[index] = { ...items[index], ...Evento.pick(data), id };
-  await Evento.writeAll(items);
-  return items[index];
+  await getById(id);
+  return prisma.evento.update({ where: { id }, data: pick(data) });
 };
 
-// Elimina un evento por id; 404 si no existe
 const remove = async (id) => {
-  const items = await Evento.readAll();
-  const restantes = items.filter((e) => e.id !== id);
-  if (restantes.length === items.length) throw new HttpError(404, "Evento no encontrado");
-  await Evento.writeAll(restantes);
+  const { count } = await prisma.evento.deleteMany({ where: { id } });
+  if (count === 0) throw new HttpError(404, "Evento no encontrado");
 };
 
-module.exports = { list, getById, create, update, remove };
+// TODO Paso 4 · TRANSACCIÓN: crea todos los registros o ninguno.
+// prisma.$transaction(async (tx) => { ... }) — dentro usa tx.evento.create, NO prisma.evento.create.
+// Valida cada ítem DENTRO de la transacción y, si uno falla, lanza
+// new HttpError(400, `Ítem ${i + 1}: ...`) → Prisma hace ROLLBACK de lo ya creado.
+const createMany = async (items) => {
+  throw new HttpError(501, "createMany() pendiente en el servicio");
+};
+
+module.exports = { list, getById, create, update, remove, createMany };

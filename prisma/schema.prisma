@@ -11,7 +11,6 @@ datasource db {
   provider = "postgresql"
 }
 
-// Entidad principal: los mismos campos del Lab 1 (nombre, fecha, lugar, capacidad, precio)
 model Evento {
   id        Int      @id @default(autoincrement())
   nombre    String   @unique @db.VarChar(120)
@@ -24,7 +23,6 @@ model Evento {
   @@map("eventos")
 }
 
-// Segunda entidad del modelo ER, todavía sin relación (las relaciones llegan en el Lab 3)
 model Cliente {
   id        Int      @id @default(autoincrement())
   nombres   String   @db.VarChar(100)

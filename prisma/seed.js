@@ -3,12 +3,9 @@ require("dotenv").config();
 const prisma = require("../src/db/prisma"); // el mismo cliente (con adaptador) que usa la API
 
 async function main() {
-  // 1. Limpia las tablas para que el seed pueda ejecutarse varias veces sin duplicar datos
   await prisma.evento.deleteMany();
   await prisma.cliente.deleteMany();
 
-  // 2. Entidad principal: los mismos 3 eventos del Lab 1.
-  //    "Concierto Sinfónico de Gala" es el valor @unique que se usa en Postman para probar el 409.
   await prisma.evento.createMany({
     data: [
       {
@@ -35,7 +32,6 @@ async function main() {
     ],
   });
 
-  // Segunda entidad: uno de los clientes no tiene teléfono (campo opcional)
   await prisma.cliente.createMany({
     data: [
       { nombres: "Ana Lucía Torres", correo: "ana.torres@correo.com", telefono: "0991234567" },
@@ -43,7 +39,6 @@ async function main() {
     ],
   });
 
-  // 3. Muestra cuántos registros quedaron
   const eventos = await prisma.evento.count();
   const clientes = await prisma.cliente.count();
   console.log(`Seed completado: ${eventos} eventos y ${clientes} clientes`);
