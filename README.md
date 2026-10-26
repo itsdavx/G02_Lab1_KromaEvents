@@ -82,3 +82,94 @@ Además, un `id` no numérico responde 400 y un cuerpo con JSON mal formado resp
   - Paso 3 (Villa Andrango José Daniel): Claude, para corregir algunos errores de código y sintaxis en los middlewares que no lograba ver a simple vista; y Gemini, para mejorar la redacción de su aporte en este README.
   - Paso 4 (Quiroz Herrera María Laura): Use Claude para saber como modificar las colecciones de postman ya que no comprendia muy bien y la ia me ayudo a entenderlo.
 - Qué verificamos o corregimos nosotros: revisamos cada corrección sugerida antes de aplicarla y probamos los endpoints para confirmar que respondieran con los códigos esperados (200, 201, 204, 400 y 404), pero en su mayoria se uso ia para entender el fundamente teorico y realizar la practica manualmente.
+
+---
+
+# Lab 2 · Persistencia con Prisma y PostgreSQL
+
+| Dato | Valor |
+|---|---|
+| Herramientas | Node.js 20.19 o superior · Prisma 7.10.1 con `@prisma/adapter-pg` · PostgreSQL 17 (Docker) · Postman |
+| Fecha | 26/10/2026 |
+
+En el Lab 1 los eventos se guardaban en un archivo JSON. Ahora se guardan en una base de datos PostgreSQL y se manejan con Prisma. Solo cambió la capa de datos: el controlador y las rutas del Lab 1 siguen iguales, con una sola ruta nueva (`/lote`).
+
+## Cómo crear la base
+
+```bash
+npm install
+cp .env.example .env      # en Windows: copy .env.example .env  (completa DATABASE_URL con los datos de docker-compose.yml)
+docker compose up -d      # levanta PostgreSQL 17
+npx prisma migrate dev    # crea las tablas eventos y clientes
+npx prisma generate       # genera el cliente de Prisma
+npx prisma db seed        # carga 3 eventos y 2 clientes de prueba
+npm run dev               # http://localhost:3000
+```
+
+Al arrancar, el servidor muestra `PostgreSQL conectado`. Si la base no responde, muestra el error y se detiene.
+
+## Comandos de Prisma
+
+| Script | Comando | Para qué sirve |
+|---|---|---|
+| `npm run db:migrate` | `prisma migrate dev` | Crea o actualiza las tablas según `schema.prisma` y guarda el cambio en `prisma/migrations/` |
+| `npm run db:generate` | `prisma generate` | Genera el cliente de Prisma (en Prisma 7 se ejecuta después de cada migración) |
+| `npm run db:seed` | `prisma db seed` | Borra los datos y carga los de prueba; se puede ejecutar varias veces |
+| `npm run db:studio` | `prisma studio` | Abre en el navegador una vista de las tablas y sus datos |
+
+## Modelo de datos
+
+- `MODELO_ER.md`: diagrama con las 3 entidades del emprendimiento (Evento, Cliente y Reserva) y cómo se relacionan.
+- `prisma/schema.prisma`: las tablas `eventos` y `clientes`. Reserva y las relaciones se programan en el Lab 3.
+- No se pueden repetir el `nombre` de un evento ni el `correo` de un cliente.
+
+## Endpoints
+
+| Verbo | Ruta | Acción | Éxito | Errores |
+|---|---|---|---|---|
+| GET | /api/eventos | Listar | 200 | — |
+| GET | /api/eventos/:id | Ver uno | 200 | 400, 404 |
+| POST | /api/eventos | Crear | 201 | 400, 409 |
+| PUT | /api/eventos/:id | Actualizar | 200 | 400, 404, 409 |
+| DELETE | /api/eventos/:id | Eliminar | 204 | 404 |
+| POST | /api/eventos/lote | Crear varios a la vez | 201 | 400, 409 |
+
+El error **409** aparece cuando se intenta guardar un evento con un nombre que ya existe.
+
+## Endpoint /lote (transacción: todo o nada)
+
+`POST /api/eventos/lote` recibe un arreglo de eventos y los guarda juntos:
+
+- Si todos están bien, se guardan todos y responde **201** con la lista creada (COMMIT).
+- Si uno tiene datos inválidos, no se guarda ninguno y responde **400** indicando qué ítem falló, por ejemplo `Ítem 2: precio debe ser un número mayor o igual a 0` (ROLLBACK).
+- Si uno tiene un nombre que ya existe, no se guarda ninguno y responde **409** (ROLLBACK).
+- Si el cuerpo no es un arreglo o está vacío, responde **400**.
+
+Ejemplo de cuerpo:
+
+```json
+[
+  { "nombre": "Noche de Jazz", "fecha": "2026-12-12", "lugar": "Teatro Sucre, Quito", "capacidad": 80, "precio": 12 },
+  { "nombre": "Feria del Libro", "fecha": "2026-12-19", "lugar": "Casa de la Cultura, Quito", "capacidad": 200, "precio": 0 }
+]
+```
+
+## Pruebas en Postman
+
+Importa `postman/G02_Lab2.postman_collection.json` y ejecuta **Run collection** después de `npx prisma db seed` (13 peticiones, 18 pruebas). La carpeta «CRUD con Prisma» prueba los 5 endpoints con los códigos 200, 201, 204, 400, 404 y 409, y la carpeta «Transacción (todo o nada)» comprueba el COMMIT y que los lotes fallidos no dejen nada guardado. Evidencias en `evidencias/prisma-studio.png` y `evidencias/postman-run.png`.
+
+## Aporte de cada integrante (Lab 2)
+
+| Integrante | Qué hizo |
+|---|---|
+| Bonilla Caiza David Alejandro | **Paso 1 · Modelo ER y conexión con la base.** Dibujó en `MODELO_ER.md` el modelo de datos del emprendimiento: eventos, clientes y reservas, y cómo se relacionan entre sí. Instaló Prisma en la versión del curso, levantó PostgreSQL con Docker y puso la dirección de la base en el archivo `.env`. También hizo que el servidor revise la conexión con la base antes de arrancar. |
+| Villa Andrango José Daniel | **Paso 2 · Tablas, migración y datos de prueba.** Escribió en `schema.prisma` cómo son las tablas de eventos y clientes: qué datos guarda cada una, cuáles no se pueden repetir y cuál es opcional. Creó la primera migración, que construye esas tablas en la base, y el seed, que carga 3 eventos y 2 clientes de prueba sin duplicarlos aunque se ejecute varias veces. Agregó los comandos `db:migrate`, `db:generate`, `db:seed` y `db:studio`. |
+| Quiroz Herrera María Laura | **Paso 3 · El CRUD ahora usa la base de datos.** Cambió el servicio de eventos para que guarde, lea, actualice y borre en PostgreSQL en lugar del archivo JSON, sin tocar el controlador ni las rutas. Cambió el manejador de errores para que avise con un 409 cuando se repite el nombre de un evento. Borró las carpetas `data/` y `src/models/`, que ya no se usan, y revisó los datos en Prisma Studio. |
+| Sánchez Verduga Julio Esteban | **Paso 4 · Guardar varios eventos a la vez, Postman y README.** Creó la ruta `/api/eventos/lote`, que guarda varios eventos juntos: si uno falla, no se guarda ninguno. Adaptó la colección de Postman a KromaEvents, la ejecutó completa comprobando que los lotes fallidos no dejen nada guardado y escribió esta sección del README. |
+
+## Declaración de uso de IA (Lab 2)
+
+- Herramienta(s) usada(s): ChatGpt
+- Para qué la usamos:
+  - Paso 4 (Sánchez Verduga Julio Esteban): Se uso unicamente para redactar las instrucciones en el README.md.
+- Qué verificamos o corregimos nosotros: Se escribio de forma "bulgar" o "simple" el README.md, y chat gpt se encargo de mejorar el orden y la redaccion.
