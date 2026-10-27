@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "G02_Lab3 · Relaciones, auth y despliegue",
-    "description": "Laboratorio 3 · Desarrollo Web Avanzado. Ejecuta primero `npx prisma db seed`. Para probar el despliegue, cambia baseUrl por la URL pública de Railway.",
+    "description": "Laboratorio 3 · Desarrollo Web Avanzado · KromaEvents. Ejecuta primero `npx prisma db seed`. Para probar el despliegue, usa el entorno G02_Lab3 · Render (URL pública de Render).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -594,7 +594,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "// Segundo evento del seed para probar que el primero NO se descuenta",
-                  "pm.sendRequest(pm.collectionVariables.get(\"baseUrl\") + \"/api/eventos\", (err, res) => {",
+                  "pm.sendRequest(pm.variables.get(\"baseUrl\") + \"/api/eventos\", (err, res) => {",
                   "  pm.collectionVariables.set(\"eventoId2\", res.json().find((e) => e.nombre === \"Taller de Fotografía Urbana\").id);",
                   "});"
                 ]
