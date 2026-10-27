@@ -173,3 +173,147 @@ Importa `postman/G02_Lab2.postman_collection.json` y ejecuta **Run collection** 
 - Para qué la usamos:
   - Paso 4 (Sánchez Verduga Julio Esteban): Se uso unicamente para redactar las instrucciones en el README.md.
 - Qué verificamos o corregimos nosotros: Se escribio de forma "bulgar" o "simple" el README.md, y chat gpt se encargo de mejorar el orden y la redaccion.
+
+---
+
+# Lab 3 · Relaciones, autenticación y despliegue
+
+| Dato | Valor |
+|---|---|
+| URL pública (API) | https://kromaevents-api.onrender.com |
+| Base de datos | PostgreSQL 17 en Neon (AWS US East 1, N. Virginia) |
+| Herramientas | Node.js 20.19 o superior · Express · Prisma 7.10.1 con `@prisma/adapter-pg` · jsonwebtoken · bcryptjs · Postman · Render · Neon |
+| Fecha | 27/10/2026 |
+
+La API de KromaEvents ahora tiene usuarios con roles, eventos relacionados con sus reservas, una reserva que consume cupos dentro de una transacción, un módulo de administración con consultas avanzadas y está publicada en internet.
+
+> **Despliegue en Render + Neon:** Railway tenía desactivado el registro de cuentas nuevas. Según la sección 3 del enunciado, se usa Render (API) + Neon (PostgreSQL) con la misma colección. La guía paso a paso está en `RENDER.md`. El plan gratuito de Render suspende el servicio tras unos minutos sin uso: la **primera petición puede tardar hasta un minuto** mientras despierta; las siguientes responden normal.
+
+## Cómo ejecutar en local
+
+```bash
+npm install                 # también ejecuta prisma generate (postinstall)
+cp .env.example .env        # en Windows: copy .env.example .env  (completa DATABASE_URL y JWT_SECRET)
+docker compose up -d        # PostgreSQL 17
+npx prisma migrate deploy   # aplica las migraciones init, auth y relaciones
+npx prisma db seed          # 3 eventos, 1 admin, 2 clientes y 3 reservas
+npm run dev                 # http://localhost:3000
+```
+
+`npm start` ejecuta `prisma migrate deploy` antes de levantar la API: así la base de Render/Neon siempre queda al día.
+
+## Usuarios de prueba (seed)
+
+| Correo | Contraseña | Rol | Perfil de cliente |
+|---|---|---|---|
+| admin@kromaevents.com | Admin123* | ADMIN | No |
+| ana.torres@correo.com | Ana12345* | USER | Sí (1 reserva confirmada) |
+| carlos.mena@correo.com | Carlos123* | USER | Sí (1 reserva pendiente y 1 cancelada) |
+
+Cualquier persona puede crear su propio usuario con `POST /api/auth/register`; se crea con rol `USER` y con su perfil de cliente.
+
+## Organización en capas
+
+```
+src/
+├─ routes/        ← auth, eventos, reservas, admin (verbo + URL + middlewares de auth)
+├─ controllers/   ← leen req, llaman al servicio y responden código + JSON
+├─ services/      ← reglas, validaciones, bcrypt, JWT y todas las consultas de Prisma
+├─ middlewares/   ← authenticateToken, requireRole, logger, notFound, errorHandler
+├─ db/prisma.js · utils/httpError.js
+prisma/           ← schema.prisma, migrations/ (init, auth, relaciones) y seed.js
+```
+
+Ninguna ruta ni controlador consulta la base: todo el acceso con Prisma está en `services/`.
+
+## Endpoints
+
+| Verbo | Ruta | Rol | Acción | Éxito | Errores |
+|---|---|---|---|---|---|
+| GET | / | Público | Estado de la API | 200 | — |
+| POST | /api/auth/register | Público | Registrar usuario con su perfil de cliente (1:1) | 201 | 400, 409 |
+| POST | /api/auth/login | Público | Iniciar sesión y recibir el JWT | 200 | 400, 401 |
+| GET | /api/auth/me | Token | Ver el perfil propio | 200 | 401, 403, 404 |
+| GET | /api/eventos | Público | Listar eventos | 200 | — |
+| GET | /api/eventos/:id | Público | Ver un evento | 200 | 400, 404 |
+| POST | /api/eventos | ADMIN | Crear evento | 201 | 400, 401, 403, 409 |
+| POST | /api/eventos/lote | ADMIN | Crear varios eventos (todo o nada) | 201 | 400, 401, 403, 409 |
+| PUT | /api/eventos/:id | ADMIN | Actualizar evento | 200 | 400, 401, 403, 404, 409 |
+| DELETE | /api/eventos/:id | ADMIN | Eliminar evento | 204 | 400, 401, 403, 404, 409 |
+| POST | /api/reservas | USER (con perfil de cliente) | Reservar cupos en uno o varios eventos (transacción) | 201 | 400, 401, 403, 404, 409 |
+| GET | /api/reservas | USER (con perfil de cliente) | Mis reservas con su evento | 200 | 401, 403 |
+| PATCH | /api/reservas/:id/cancelar | USER (dueño de la reserva) | Cancelar y devolver los cupos | 200 | 400, 401, 403, 404, 409 |
+| GET | /api/admin/reservas | ADMIN | Listado con filtros y paginación | 200 | 400, 401, 403 |
+| PATCH | /api/admin/reservas/:id/estado | ADMIN | Cambiar el estado de una reserva | 200 | 400, 401, 403, 404, 409 |
+| GET | /api/admin/reportes/top-eventos | ADMIN | Eventos con más cupos vendidos (groupBy) | 200 | 401, 403 |
+
+**Códigos de autenticación:** sin token → **401**; token inválido o expirado → **403**; rol insuficiente → **403**; correo o contraseña incorrectos → **401** con el mismo mensaje genérico («Correo o contraseña inválidos»). Las contraseñas se guardan con `bcrypt` y ninguna respuesta las devuelve.
+
+**Otros 409:** correo o nombre de evento repetido; reserva sin cupos suficientes; cancelar una reserva que ya no está pendiente; bajar la capacidad de un evento por debajo de lo reservado; borrar un evento que tiene reservas (FK con `Restrict`).
+
+### Ejemplos de cuerpos
+
+```json
+POST /api/auth/register
+{ "email": "nuevo@correo.com", "password": "Clave123*", "name": "Cliente Nuevo", "phone": "0990000000" }
+
+POST /api/auth/login
+{ "email": "ana.torres@correo.com", "password": "Ana12345*" }
+
+POST /api/reservas            (Authorization: Bearer <token>)
+{ "items": [ { "eventoId": 1, "cantidad": 2 }, { "eventoId": 3, "cantidad": 1 } ] }
+
+PATCH /api/admin/reservas/5/estado   (token de ADMIN)
+{ "estado": "CONFIRMADA" }
+```
+
+`GET /api/admin/reservas` acepta `estado` (`PENDIENTE`, `CONFIRMADA`, `CANCELADA`), `eventoId`, `from` y `to` (AAAA-MM-DD), `page` y `limit` (máximo 50), y responde `{ page, limit, total, pages, data }`.
+
+## Reserva con transacción (recurso limitado: cupos)
+
+`POST /api/reservas` corre dentro de `prisma.$transaction`. Por cada evento descuenta los cupos con una actualización condicional (`updateMany` con `cuposDisponibles >= cantidad`); si un evento no existe responde **404** y si no alcanzan los cupos responde **409**. En ambos casos se hace **ROLLBACK** y no se guarda ninguna reserva ni se descuenta ningún cupo (lo comprueban las peticiones 12 y 13 de la colección). Como la condición se evalúa en la propia actualización, dos reservas simultáneas no pueden ocupar el mismo cupo.
+
+Cancelar (`PATCH /api/reservas/:id/cancelar`) responde 404 si la reserva no existe, 403 si es de otro usuario y 409 si ya no está pendiente; si procede, cambia el estado a `CANCELADA` y devuelve los cupos al evento en la misma transacción.
+
+## Relaciones y decisiones de onDelete
+
+El detalle completo (diagrama, entidades y mapeo) está en `MODELO_ER.md`.
+
+| Relación | Cardinalidad | onDelete | Por qué |
+|---|---|---|---|
+| User → Cliente | 1:1 | Cascade | El cliente es el perfil del usuario y no tiene sentido sin él. |
+| Cliente → Reserva | 1:N | Restrict | Las reservas son el historial de ventas: no se borra un cliente con reservas. |
+| Evento → Reserva | 1:N | Restrict | Un evento con reservas tiene asistentes y pagos: no se puede borrar (409). |
+| Cliente ↔ Evento | N:M (tabla intermedia explícita `reservas`) | Restrict | Reserva guarda datos propios: cantidad, precio unitario, total y estado. |
+
+Mapeo: enums `Role` y `EstadoReserva`, `Decimal(10,2)` para precio y total, `DateTime` para fechas, índices compuestos `[eventoId, estado]` y `[estado, fechaReserva]`, y `@map`/`@@map` en snake_case.
+
+Evidencias: `evidencias/prisma-studio.png` (tablas y claves foráneas en el Visualizer de Prisma Studio) y `evidencias/prisma-studio-usuarios.png` (usuarios del seed, con la contraseña guardada como hash de bcrypt).
+
+## Pruebas en Postman
+
+Importa `postman/G02_Lab3.postman_collection.json` (25 peticiones, 42 pruebas) y los entornos `postman/G02_Lab3_Local.postman_environment.json` y `postman/G02_Lab3_Render.postman_environment.json`. Ejecuta primero `npx prisma db seed` (una sola vez; la colección se puede repetir).
+
+| Carpeta | Qué prueba |
+|---|---|
+| Auth | Registro con perfil 1:1, correo repetido (409), login incorrecto (401), login correcto (JWT), perfil sin token (401), con token inválido (403) y con token (200) |
+| Eventos (rol ADMIN) | Crear como USER (403) y como ADMIN (201, precio Decimal y cupos iniciales) |
+| Reservas (transacción) | Reserva (201), sin cupos con ROLLBACK (409), evento inexistente (404), datos inválidos (400), mis reservas con include, cancelación y devolución de cupos, cancelar otra vez (409) |
+| Admin y consultas avanzadas | Filtros y paginación, estado inválido (400), rol USER (403), reporte con groupBy, cambio de estado y borrado bloqueado por Restrict (409) |
+
+Evidencias: `evidencias/postman-local.png` (colección en local) y `evidencias/render-run.png` (colección contra la URL pública de Render).
+
+## Aporte de cada integrante (Lab 3)
+
+| Integrante | Qué hizo |
+|---|---|
+| Bonilla Caiza David Alejandro | **Paso 1 · Registro, inicio de sesión y permisos.** Hizo que las personas puedan crear su cuenta e iniciar sesión, y que al registrarse se cree también su ficha de cliente. Las contraseñas se guardan protegidas y nunca se muestran. Además, dejó que cualquiera pueda ver los eventos, pero solo el administrador pueda crearlos, editarlos o borrarlos. |
+| Quiroz Herrera María Laura | **Paso 2 · Relaciones entre los datos.** Conectó a los usuarios con sus clientes, y a los clientes y eventos con sus reservas. Decidió qué pasa al borrar cada cosa: por ejemplo, no se puede borrar un evento que ya tiene reservas. Actualizó el diagrama en `MODELO_ER.md`, preparó los datos de prueba (administrador, clientes, eventos y reservas) y tomó las capturas en Prisma Studio. |
+| Villa Andrango José Daniel | **Paso 3 · Reservas y administración.** Hizo que reservar descuente los cupos del evento y que, si no alcanzan, no se guarde nada. Agregó la opción de cancelar una reserva y devolver sus cupos, y la lista de reservas de cada cliente. Para el administrador, creó la lista de todas las reservas con filtros y páginas, el cambio de estado y el reporte de los eventos con más cupos vendidos. |
+| Sánchez Verduga Julio Esteban | **Paso 4 · Publicación en internet** Como Railway no permitía crear cuentas, publicó la API en Render con la base de datos en Neon. Preparó el proyecto para que la base se actualice sola al arrancar y escribió la guía `RENDER.md`. Ejecutó la colección de Postman en local y contra la URL pública, tomó las capturas y completó esta sección del README. |
+
+## Declaración de uso de IA (Lab 3)
+
+- Herramienta(s) usada(s): Claude (Anthropic)
+- Para qué la usamos: Como ayuda y apoyo para el paso 4, debido a que Railway no funciona al dia de la practica, Se opto por la opcion que solicita el docente (Neon+Render), pero debido a que no sabemos nada sobre esas herramientas, se uso claude para que guie paso a paso en el proceso, nos ayudo como "tutorial" para realizar el despliegue, ademas, se le solicito un "RENDER.md", para complementar el tutorial.
+- Qué verificamos o corregimos nosotros: Se fue implementando paso a paso lo que indico claude para poder levantar el servicio en Render y Neon con exito.
