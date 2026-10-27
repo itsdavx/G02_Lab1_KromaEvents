@@ -470,7 +470,8 @@
                 "exec": [
                   "pm.test(\"201 Created\", () => pm.response.to.have.status(201));",
                   "pm.collectionVariables.set(\"eventoId\", pm.response.json().id);",
-                  "pm.test(\"precio = 3.75\", () => pm.expect(Number(pm.response.json().precio)).to.eql(3.75));"
+                  "pm.test(\"precio es Decimal (llega como texto)\", () => pm.expect(pm.response.json().precio).to.eql(\"3.75\"));",
+                  "pm.test(\"cuposDisponibles = capacidad\", () => pm.expect(pm.response.json().cuposDisponibles).to.eql(5));"
                 ]
               }
             }

@@ -42,6 +42,8 @@ const pick = (data) => {
   return item;
 };
 
+const toCreate = (data) => ({ ...pick(data), cuposDisponibles: data.capacidad });
+
 const list = () => prisma.evento.findMany({ orderBy: { id: "asc" } });
 
 // Busca un evento por id; 404 si no existe
@@ -56,15 +58,24 @@ const create = async (data) => {
   const error = validate(data);
   if (error) throw new HttpError(400, error);
 
-  return prisma.evento.create({ data: pick(data) });
+  return prisma.evento.create({ data: toCreate(data) });
 };
 
 const update = async (id, data) => {
   const error = validate(data, { partial: true });
   if (error) throw new HttpError(400, error);
 
-  await getById(id);
-  return prisma.evento.update({ where: { id }, data: pick(data) });
+  const actual = await getById(id);
+  const item = pick(data);
+  if (item.capacidad === undefined) return prisma.evento.update({ where: { id }, data: item });
+
+  const delta = item.capacidad - actual.capacidad;
+  const { count } = await prisma.evento.updateMany({
+    where: { id, capacidad: actual.capacidad, cuposDisponibles: { gte: -delta } },
+    data: { ...item, cuposDisponibles: { increment: delta } },
+  });
+  if (count === 0) throw new HttpError(409, "La capacidad no puede ser menor que los cupos ya reservados");
+  return getById(id);
 };
 
 const remove = async (id) => {
@@ -78,7 +89,7 @@ const createMany = (items) =>
     for (const [i, data] of items.entries()) {
       const error = validate(data);
       if (error) throw new HttpError(400, `Ítem ${i + 1}: ${error}`);
-      created.push(await tx.evento.create({ data: pick(data) }));
+      created.push(await tx.evento.create({ data: toCreate(data) }));
     }
     return created;
   });
