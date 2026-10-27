@@ -1,5 +1,5 @@
 /*
- * Laboratorio 1 · Mini-API MVC con CRUD
+ * Laboratorio 3 · Mini-API MVC con CRUD
  * Desarrollo Web Avanzado (A0R04) · ESPE
  * Grupo: G02 · Emprendimiento: KromaEvents
  * Integrantes: Bonilla Caiza David Alejandro,
@@ -21,7 +21,7 @@ app.use(logger);
 app.use(express.json());
 
 // Rutas de la API bajo /api
-app.get("/", (req, res) => res.json({ api: "Lab 1 · Mini-API MVC", estado: "ok" }));
+app.get("/", (req, res) => res.json({ api: "Lab 3 · KromaEvents API", estado: "ok" }));
 app.use("/api", routes);
 
 // Ruta inexistente y manejo de errores (deben ir al final)
