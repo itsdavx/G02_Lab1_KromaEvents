@@ -1,4 +1,4 @@
-// Lab 2 · Persistencia con Prisma + PostgreSQL
+// Lab 3 · Persistencia con Prisma + PostgreSQL
 // Grupo: G02 · Emprendimiento: KromaEvents
 // Cada model es una tabla; cada campo, una columna. Tras cualquier cambio: npx prisma migrate dev --name <cambio> y luego npx prisma generate
 
@@ -16,6 +16,14 @@ enum Role {
   ADMIN
 }
 
+enum EstadoReserva {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+
+  @@map("estado_reserva")
+}
+
 // Usuario que se autentica con JWT (clases 18–20)
 model User {
   id        Int      @id @default(autoincrement())
@@ -30,26 +38,48 @@ model User {
 }
 
 model Evento {
-  id        Int      @id @default(autoincrement())
-  nombre    String   @unique @db.VarChar(120)
-  fecha     DateTime @db.Date
-  lugar     String   @db.VarChar(150)
-  capacidad Int
-  precio    Float
-  createdAt DateTime @default(now()) @map("created_at")
+  id               Int       @id @default(autoincrement())
+  nombre           String    @unique @db.VarChar(120)
+  fecha            DateTime  @db.Date
+  lugar            String    @db.VarChar(150)
+  capacidad        Int
+  cuposDisponibles Int       @map("cupos_disponibles")
+  precio           Decimal   @db.Decimal(10, 2)
+  createdAt        DateTime  @default(now()) @map("created_at")
+  reservas         Reserva[]
 
   @@map("eventos")
 }
 
 model Cliente {
-  id        Int      @id @default(autoincrement())
-  nombres   String   @db.VarChar(100)
-  correo    String   @unique @db.VarChar(120)
-  telefono  String?  @db.VarChar(15)
-  createdAt DateTime @default(now()) @map("created_at")
+  id        Int       @id @default(autoincrement())
+  nombres   String    @db.VarChar(100)
+  correo    String    @unique @db.VarChar(120)
+  telefono  String?   @db.VarChar(15)
+  createdAt DateTime  @default(now()) @map("created_at")
+  reservas  Reserva[]
 
   userId Int?  @unique @map("user_id")
   user   User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("clientes")
+}
+
+model Reserva {
+  id             Int           @id @default(autoincrement())
+  cantidad       Int
+  precioUnitario Decimal       @map("precio_unitario") @db.Decimal(10, 2)
+  total          Decimal       @db.Decimal(10, 2)
+  estado         EstadoReserva @default(PENDIENTE)
+  fechaReserva   DateTime      @default(now()) @map("fecha_reserva")
+
+  clienteId Int     @map("cliente_id")
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
+  eventoId  Int     @map("evento_id")
+  evento    Evento  @relation(fields: [eventoId], references: [id], onDelete: Restrict)
+
+  @@index([clienteId])
+  @@index([eventoId, estado])
+  @@index([estado, fechaReserva])
+  @@map("reservas")
 }
