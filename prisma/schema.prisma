@@ -19,6 +19,7 @@ enum Role {
 enum EstadoReserva {
   PENDIENTE
   CONFIRMADA
+  ASISTIDA
   CANCELADA
 
   @@map("estado_reserva")
@@ -26,27 +27,32 @@ enum EstadoReserva {
 
 // Usuario que se autentica con JWT (clases 18–20)
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique @db.VarChar(120)
-  password  String // hash de bcrypt, nunca la clave en texto plano
-  name      String   @db.VarChar(100)
-  role      Role     @default(USER)
-  createdAt DateTime @default(now()) @map("created_at")
-  cliente   Cliente? // 1:1 → el lado sin FK
+  id            Int                @id @default(autoincrement())
+  email         String             @unique @db.VarChar(120)
+  password      String // hash de bcrypt, nunca la clave en texto plano
+  name          String             @db.VarChar(100)
+  role          Role               @default(USER)
+  createdAt     DateTime           @default(now()) @map("created_at")
+  lastLoginAt   DateTime?          @map("last_login_at")
+  cliente       Cliente? // 1:1 → el lado sin FK
+  resenas       Resena[]
+  cambiosEstado ReservaHistorial[]
 
   @@map("users")
 }
 
 model Evento {
-  id               Int       @id @default(autoincrement())
-  nombre           String    @unique @db.VarChar(120)
-  fecha            DateTime  @db.Date
-  lugar            String    @db.VarChar(150)
+  id               Int         @id @default(autoincrement())
+  nombre           String      @unique @db.VarChar(120)
+  fecha            DateTime    @db.Date
+  lugar            String      @db.VarChar(150)
   capacidad        Int
-  cuposDisponibles Int       @map("cupos_disponibles")
-  precio           Decimal   @db.Decimal(10, 2)
-  createdAt        DateTime  @default(now()) @map("created_at")
+  cuposDisponibles Int         @map("cupos_disponibles")
+  precio           Decimal     @db.Decimal(10, 2)
+  createdAt        DateTime    @default(now()) @map("created_at")
   reservas         Reserva[]
+  resenas          Resena[]
+  categorias       Categoria[]
 
   @@map("eventos")
 }
@@ -66,12 +72,13 @@ model Cliente {
 }
 
 model Reserva {
-  id             Int           @id @default(autoincrement())
+  id             Int                @id @default(autoincrement())
   cantidad       Int
-  precioUnitario Decimal       @map("precio_unitario") @db.Decimal(10, 2)
-  total          Decimal       @db.Decimal(10, 2)
-  estado         EstadoReserva @default(PENDIENTE)
-  fechaReserva   DateTime      @default(now()) @map("fecha_reserva")
+  precioUnitario Decimal            @map("precio_unitario") @db.Decimal(10, 2)
+  total          Decimal            @db.Decimal(10, 2)
+  estado         EstadoReserva      @default(PENDIENTE)
+  fechaReserva   DateTime           @default(now()) @map("fecha_reserva")
+  historial      ReservaHistorial[]
 
   clienteId Int     @map("cliente_id")
   cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Restrict)
@@ -82,4 +89,44 @@ model Reserva {
   @@index([eventoId, estado])
   @@index([estado, fechaReserva])
   @@map("reservas")
+}
+
+model Resena {
+  id           Int      @id @default(autoincrement())
+  calificacion Int      @db.SmallInt
+  comentario   String?  @db.VarChar(300)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  userId   Int    @map("user_id")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventoId Int    @map("evento_id")
+  evento   Evento @relation(fields: [eventoId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventoId])
+  @@index([eventoId, createdAt])
+  @@map("resenas")
+}
+
+model Categoria {
+  id      Int      @id @default(autoincrement())
+  nombre  String   @unique @db.VarChar(50)
+  eventos Evento[]
+
+  @@map("categorias")
+}
+
+model ReservaHistorial {
+  id             Int           @id @default(autoincrement())
+  estadoAnterior EstadoReserva @map("estado_anterior")
+  estadoNuevo    EstadoReserva @map("estado_nuevo")
+  nota           String?       @db.VarChar(200)
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  reservaId     Int     @map("reserva_id")
+  reserva       Reserva @relation(fields: [reservaId], references: [id], onDelete: Cascade)
+  cambiadoPorId Int     @map("cambiado_por_id")
+  cambiadoPor   User    @relation(fields: [cambiadoPorId], references: [id], onDelete: Restrict)
+
+  @@index([reservaId])
+  @@map("reserva_historial")
 }

@@ -15,9 +15,12 @@ const reservar = (evento, clienteId, cantidad, estado) =>
   });
 
 async function main() {
+  await prisma.resena.deleteMany();
+  await prisma.reservaHistorial.deleteMany();
   await prisma.reserva.deleteMany();
   await prisma.cliente.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.categoria.deleteMany();
   await prisma.evento.deleteMany();
 
   await prisma.evento.createMany({
@@ -45,6 +48,14 @@ async function main() {
         capacidad: 30,
         cuposDisponibles: 30,
         precio: 15,
+      },
+      {
+        nombre: "Noche de Jazz KromaEvents",
+        fecha: new Date("2026-10-17"),
+        lugar: "Teatro Sucre, Quito",
+        capacidad: 80,
+        cuposDisponibles: 80,
+        precio: 12,
       },
     ],
   });
@@ -79,10 +90,13 @@ async function main() {
   const concierto = await prisma.evento.findUnique({ where: { nombre: "Concierto Sinfónico de Gala" } });
   const feria = await prisma.evento.findUnique({ where: { nombre: "Feria Gastronómica Andina" } });
   const taller = await prisma.evento.findUnique({ where: { nombre: "Taller de Fotografía Urbana" } });
+  const jazz = await prisma.evento.findUnique({ where: { nombre: "Noche de Jazz KromaEvents" } });
 
   await reservar(concierto, ana.cliente.id, 2, "CONFIRMADA");
   await reservar(feria, carlos.cliente.id, 4, "PENDIENTE");
   await reservar(taller, carlos.cliente.id, 1, "CANCELADA");
+  await reservar(jazz, ana.cliente.id, 2, "ASISTIDA");
+  await reservar(jazz, carlos.cliente.id, 1, "ASISTIDA");
 
   const eventos = await prisma.evento.count();
   const clientes = await prisma.cliente.count();
