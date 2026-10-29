@@ -393,6 +393,6 @@ Importa `postman/G02_Taller.postman_collection.json` (101 peticiones, 208 prueba
 
 ## Declaración de uso de IA (Taller)
 
-- Herramienta(s) usada(s): (completar)
-- Para qué la usamos: (completar)
-- Qué verificamos o corregimos nosotros: (completar)
+- Herramienta(s) usada(s): Claude
+- Para qué la usamos: Redaccion del README.md
+- Qué verificamos o corregimos nosotros: Nos aseguramos que tenga exactamente lo que hicimos y no se invente cosas.
