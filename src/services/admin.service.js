@@ -1,4 +1,4 @@
-const { EstadoReserva } = require("@prisma/client");
+const { EstadoReserva, Prisma } = require("@prisma/client");
 const prisma = require("../db/prisma");
 const HttpError = require("../utils/httpError");
 
@@ -37,6 +37,13 @@ const parseFecha = (value, campo) => {
 
 const DIA_MS = 24 * 60 * 60 * 1000;
 
+const filtroFechas = (from, to) => {
+  const desde = parseFecha(from, "from");
+  const hasta = parseFecha(to, "to");
+  if (desde && hasta && desde > hasta) throw new HttpError(400, "from no puede ser mayor que to");
+  return desde || hasta ? { gte: desde, lt: hasta && new Date(hasta.getTime() + DIA_MS) } : undefined;
+};
+
 // Filtros + paginación + orden + conteo en una sola transacción de lectura
 // TODO Paso 3 (clase «Endpoint para listar citas con Prisma»): filtros + paginación.
 // where = { estado: parseEstado(estado), fechaReserva: { gte: from && new Date(from), lte: ... } }
@@ -44,14 +51,10 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 // Usa prisma.$transaction([prisma.reserva.count({ where }), prisma.reserva.findMany({ where, include, orderBy, skip, take })])
 // y responde { page, limit, total, pages, data }
 const listReservas = async ({ estado, eventoId, from, to, page, limit }) => {
-  const desde = parseFecha(from, "from");
-  const hasta = parseFecha(to, "to");
-  if (desde && hasta && desde > hasta) throw new HttpError(400, "from no puede ser mayor que to");
-
   const where = {
     estado: parseEstado(estado),
     eventoId: parseEventoId(eventoId),
-    fechaReserva: desde || hasta ? { gte: desde, lt: hasta && new Date(hasta.getTime() + DIA_MS) } : undefined,
+    fechaReserva: filtroFechas(from, to),
   };
   const take = toInt(limit, 10, 50);
   const pagina = toInt(page, 1);
@@ -145,4 +148,57 @@ const topEventos = async (limit) => {
   }));
 };
 
-module.exports = { listReservas, updateReservaEstado, topEventos };
+const estadisticas = async ({ from, to }) => {
+  const where = { fechaReserva: filtroFechas(from, to) };
+  const asistidas = { ...where, estado: "ASISTIDA" };
+
+  return prisma.$transaction(async (tx) => {
+    const porEstado = await tx.reserva.groupBy({
+      by: ["estado"],
+      where,
+      _count: { _all: true },
+      _sum: { cantidad: true },
+    });
+    const ingresos = await tx.reserva.aggregate({
+      where: asistidas,
+      _sum: { total: true },
+      _avg: { total: true },
+      _count: { _all: true },
+    });
+    const top = await tx.reserva.groupBy({
+      by: ["clienteId"],
+      where: asistidas,
+      _sum: { total: true },
+      _count: { _all: true },
+      orderBy: { _sum: { total: "desc" } },
+      take: 3,
+    });
+    const clientes = await tx.cliente.findMany({
+      where: { id: { in: top.map((t) => t.clienteId) } },
+      select: { id: true, nombres: true },
+    });
+    const nombres = new Map(clientes.map((c) => [c.id, c.nombres]));
+    const cero = new Prisma.Decimal(0);
+
+    return {
+      periodo: { from: from ?? null, to: to ?? null },
+      reservasPorEstado: Object.values(EstadoReserva).map((estado) => {
+        const fila = porEstado.find((f) => f.estado === estado);
+        return { estado, reservas: fila?._count._all ?? 0, cupos: fila?._sum.cantidad ?? 0 };
+      }),
+      ingresos: {
+        total: ingresos._sum.total ?? cero,
+        promedio: ingresos._avg.total?.toDecimalPlaces(2) ?? cero,
+        reservas: ingresos._count._all,
+      },
+      topClientes: top.map((t) => ({
+        clienteId: t.clienteId,
+        nombres: nombres.get(t.clienteId),
+        gastado: t._sum.total,
+        reservas: t._count._all,
+      })),
+    };
+  });
+};
+
+module.exports = { listReservas, updateReservaEstado, topEventos, estadisticas };

@@ -30,4 +30,12 @@ const topEventos = async (req, res, next) => {
   }
 };
 
-module.exports = { listReservas, updateReservaEstado, topEventos };
+const estadisticas = async (req, res, next) => {
+  try {
+    res.json(await adminService.estadisticas(req.query));
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listReservas, updateReservaEstado, topEventos, estadisticas };
