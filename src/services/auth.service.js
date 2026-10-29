@@ -59,6 +59,8 @@ const login = async ({ email, password }) => {
   if (!user || !(await bcrypt.compare(password, user.password)))
     throw new HttpError(401, "Correo o contraseña inválidos");
 
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
+
   return jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || "4h",
   });

@@ -372,9 +372,27 @@ Transiciones válidas: `PENDIENTE → CONFIRMADA → ASISTIDA` y `PENDIENTE` o `
 
 | Método | Ruta | Rol | Body | Respuestas |
 |---|---|---|---|---|
-| GET | /api/me | Autenticado | — | 200 usuario con su cliente y el número de reservas (`_count`), sin contraseña · 401 · 403 |
-| PATCH | /api/me | Autenticado | `{ name?, phone? }` | 200 usuario actualizado · 400 name < 3, phone no numérico de 7–15 dígitos o body vacío · 401 · 403 |
+| GET | /api/me | Autenticado | — | 200 usuario con su cliente y el número de reservas (`_count`), sin contraseña · 401 · 403 · 404 usuario ya no existe |
+| PATCH | /api/me | Autenticado | `{ name?, phone? }` | 200 usuario actualizado · 400 name < 3, phone no numérico de 7–15 dígitos, body vacío o phone en un usuario sin perfil de cliente · 401 · 403 |
 | PATCH | /api/me/password | Autenticado | `{ currentPassword, newPassword }` | 204 · 400 nueva < 8 o igual a la actual · 401 contraseña actual incorrecta o sin token · 403 |
-| GET | /api/admin/estadisticas | ADMIN | — (query: `from`, `to`) | 200 `{ reservasPorEstado, ingresos, topClientes }` · 400 fecha inválida · 401 · 403 |
+| GET | /api/admin/estadisticas | ADMIN | — (query: `from`, `to`) | 200 `{ periodo, reservasPorEstado, ingresos, topClientes }` · 400 fecha inválida o from > to · 401 · 403 |
 
-Modelo: se agrega `lastLoginAt` (`last_login_at`) a `User`, que el login actualiza. `PATCH /api/me` actualiza `User` y su perfil `Cliente` con una escritura anidada (1:1). Las estadísticas se calculan en una `$transaction` de lecturas: reservas por estado (`groupBy`), ingresos total y promedio de las reservas `ASISTIDA` (`aggregate`) y los 3 clientes que más gastaron.
+Modelo: se agrega `lastLoginAt` (`last_login_at`) a `User`, que el login actualiza. `PATCH /api/me` actualiza `User` y su perfil `Cliente` con una escritura anidada (1:1). Las estadísticas se calculan en una `$transaction` de lecturas: reservas por estado (`groupBy`), ingresos total y promedio de las reservas `ASISTIDA` (`aggregate`) y los 3 clientes que más gastaron. Solo cuentan como ingreso las reservas `ASISTIDA` (el evento ya se realizó). `reservasPorEstado` siempre trae los 4 estados, con 0 si no hay reservas en el periodo. La contraseña nueva se guarda con `bcrypt.hash` después de comprobar la actual con `bcrypt.compare`; ninguna respuesta devuelve la contraseña.
+
+## Taller · Pruebas en Postman
+
+Importa `postman/G02_Taller.postman_collection.json` (101 peticiones, 208 pruebas) con el entorno `G02_Lab3 · Local` o `G02_Lab3 · Render`. Ejecuta primero `npx prisma db seed` y luego **Run collection** completa: las carpetas del taller usan el usuario que registra la carpeta «Auth» del Lab 3. La colección se puede repetir sin volver a cargar el seed.
+
+| Carpeta | Peticiones | Qué prueba |
+|---|---|---|
+| Carpetas del Lab 3 | 25 | Auth, roles, reserva con transacción, cancelación y admin (la 24 ahora comprueba que una reserva cancelada no se reactiva: 409) |
+| Taller · A · David Bonilla | 17 | Reseña creada (201), duplicada (409), calificación y comentario inválidos (400), sin token (401), sin haber asistido (403), evento inexistente (404), lista con promedio, borrado por autor y por ADMIN (204), ajena (403) |
+| Taller · B · Laura Quiroz | 18 | Categoría creada (201), duplicada sin importar mayúsculas (409), nombre vacío (400), 401/403, lista con `_count`, `set` de categorías, búsqueda combinada, orden por precio, sort y rango inválidos (400), reto por categoría |
+| Taller · C · José Villa | 22 | Flujo PENDIENTE → CONFIRMADA → ASISTIDA, transición no permitida (409), estado y nota inválidos (400), 401/403/404, historial cronológico del dueño y del ADMIN, reserva ajena (403), devolución de cupos al cancelar, reto de cancelación del cliente |
+| Taller · D · Julio Sánchez | 19 | Mi cuenta con `_count` y `lastLoginAt`, escritura anidada de nombre y teléfono, validaciones (400), cambio de contraseña (204) con actual incorrecta (401) y nueva inválida (400), login con la clave vieja y la nueva, estadísticas con `groupBy`/`aggregate`, periodo vacío, fecha inválida, 401/403 |
+
+## Declaración de uso de IA (Taller)
+
+- Herramienta(s) usada(s): (completar)
+- Para qué la usamos: (completar)
+- Qué verificamos o corregimos nosotros: (completar)
