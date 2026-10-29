@@ -317,3 +317,63 @@ Evidencias: `evidencias/postman-local.png` (colección en local) y `evidencias/r
 - Herramienta(s) usada(s): Claude (Anthropic)
 - Para qué la usamos: Como ayuda y apoyo para el paso 4, debido a que Railway no funciona al dia de la practica, Se opto por la opcion que solicita el docente (Neon+Render), pero debido a que no sabemos nada sobre esas herramientas, se uso claude para que guie paso a paso en el proceso, nos ayudo como "tutorial" para realizar el despliegue, ademas, se le solicito un "RENDER.md", para complementar el tutorial.
 - Qué verificamos o corregimos nosotros: Se fue implementando paso a paso lo que indico claude para poder levantar el servicio en Render y Neon con exito.
+
+---
+
+# Taller · Nuevas funcionalidades para KromaEvents
+
+| Dato | Valor |
+|---|---|
+| Punto de partida | API del Lab 3 (auth, eventos, reservas con transacción y módulo de administración) |
+| Despliegue | Render + Neon, igual que en el Lab 3 (el docente indicó ignorar la cláusula de Railway) |
+| Migración del taller | Una sola: `prisma/migrations/20261029094906_taller` con los modelos de las 4 tarjetas |
+
+Nombres del enunciado adaptados a KromaEvents: *Product* → **Evento**, *Order* → **Reserva**, *OrderStatus* → **EstadoReserva**, *Customer* → **Cliente**.
+
+| Tarjeta | Funcionalidad | Integrante |
+|---|---|---|
+| A | Reseñas de eventos | Bonilla Caiza David Alejandro |
+| B | Categorías y búsqueda avanzada | Quiroz Herrera María Laura |
+| C | Flujo de estados con historial | Villa Andrango José Daniel |
+| D | Mi cuenta y panel de indicadores | Sánchez Verduga Julio Esteban |
+
+## Taller · Tarjeta A · Reseñas · Bonilla Caiza David Alejandro
+
+| Método | Ruta | Rol | Body | Respuestas |
+|---|---|---|---|---|
+| POST | /api/eventos/:id/resenas | Autenticado que asistió al evento (reserva `ASISTIDA`) | `{ calificacion: 1-5, comentario? }` | 201 reseña · 400 calificación fuera de 1–5, comentario > 300 o id no numérico · 401 sin token · 403 token inválido o no asistió al evento · 404 evento · 409 ya reseñó ese evento |
+| GET | /api/eventos/:id/resenas | Público | — (query: `page`, `limit`) | 200 `{ eventoId, promedio, total, page, limit, pages, data }` · 400 id no numérico · 404 evento |
+| DELETE | /api/resenas/:id | Autor o ADMIN | — | 204 · 400 id no numérico · 401 sin token · 403 no es el autor ni ADMIN · 404 reseña |
+
+Modelo: `Resena` (tabla `resenas`) con relación 1:N hacia `User` y 1:N hacia `Evento`. `calificacion` es `SmallInt` (se valida de 1 a 5 en el servicio) y `comentario` es opcional de hasta 300 caracteres. `@@unique([userId, eventoId])` garantiza una sola reseña por usuario y evento, incluso con dos peticiones simultáneas (P2002 → 409). `onDelete: Cascade` en ambos lados porque una reseña no tiene sentido sin su autor ni sin su evento. El promedio se calcula con `aggregate` (`_avg`) y la lista se pagina con `skip`/`take`. Reto opcional: solo reseña quien tiene una reserva `ASISTIDA` en ese evento (filtro `some`), si no → 403.
+
+## Taller · Tarjeta B · Categorías y búsqueda · Quiroz Herrera María Laura
+
+| Método | Ruta | Rol | Body | Respuestas |
+|---|---|---|---|---|
+| POST | /api/categorias | ADMIN | `{ nombre }` | 201 categoría · 400 nombre vacío o > 50 · 401 · 403 · 409 duplicada |
+| GET | /api/categorias | Público | — | 200 `[ { id, nombre, _count: { eventos } } ]` |
+| PUT | /api/eventos/:id/categorias | ADMIN | `{ categoriaIds: [1, 2] }` | 200 evento con sus categorías · 400 no es arreglo de enteros · 401 · 403 · 404 evento o categoría inexistente |
+| GET | /api/eventos/buscar | Público | — (query: `q`, `categoria`, `min`, `max`, `sort` = `precio_asc`, `precio_desc` o `nombre`, `page`, `limit`) | 200 `{ page, limit, total, pages, data }` · 400 sort o rango de precio inválido |
+
+Modelo: `Categoria` (tabla `categorias`) con relación N:M implícita con `Evento`; Prisma crea la tabla intermedia `_CategoriaToEvento`. `nombre` es único. Las categorías de un evento se reemplazan con `set`. La búsqueda combina `contains` sin distinguir mayúsculas, la relación con `some`, rango de precio, orden dinámico y paginación. `/buscar` se declara antes de `/:id`.
+
+## Taller · Tarjeta C · Flujo de estados con historial · Villa Andrango José Daniel
+
+| Método | Ruta | Rol | Body | Respuestas |
+|---|---|---|---|---|
+| PATCH | /api/admin/reservas/:id/estado | ADMIN | `{ estado, nota? }` | 200 reserva con el estado nuevo · 400 estado inválido o nota > 200 · 401 · 403 · 404 · 409 transición no permitida o la reserva cambió mientras tanto |
+| GET | /api/reservas/:id/historial | Dueño o ADMIN | — | 200 `{ reservaId, estado, historial }` · 400 id no numérico · 401 · 403 no es el dueño · 404 |
+
+Transiciones válidas: `PENDIENTE → CONFIRMADA → ASISTIDA` y `PENDIENTE` o `CONFIRMADA → CANCELADA` (al cancelar se devuelven los cupos). Modelo: `ReservaHistorial` (tabla `reserva_historial`) con dos relaciones 1:N: hacia `Reserva` (`onDelete: Cascade`, el historial pertenece a la reserva) y hacia `User` como quien hizo el cambio (`onDelete: Restrict`, no se borra un usuario que dejó registros en el historial). Se agrega `ASISTIDA` al enum `EstadoReserva` y un `@@index([reservaId])`. El cambio de estado y su registro se guardan en la misma `$transaction` con un `updateMany` condicionado al estado actual.
+
+## Taller · Tarjeta D · Mi cuenta e indicadores · Sánchez Verduga Julio Esteban
+
+| Método | Ruta | Rol | Body | Respuestas |
+|---|---|---|---|---|
+| GET | /api/me | Autenticado | — | 200 usuario con su cliente y el número de reservas (`_count`), sin contraseña · 401 · 403 |
+| PATCH | /api/me | Autenticado | `{ name?, phone? }` | 200 usuario actualizado · 400 name < 3, phone no numérico de 7–15 dígitos o body vacío · 401 · 403 |
+| PATCH | /api/me/password | Autenticado | `{ currentPassword, newPassword }` | 204 · 400 nueva < 8 o igual a la actual · 401 contraseña actual incorrecta o sin token · 403 |
+| GET | /api/admin/estadisticas | ADMIN | — (query: `from`, `to`) | 200 `{ reservasPorEstado, ingresos, topClientes }` · 400 fecha inválida · 401 · 403 |
+
+Modelo: se agrega `lastLoginAt` (`last_login_at`) a `User`, que el login actualiza. `PATCH /api/me` actualiza `User` y su perfil `Cliente` con una escritura anidada (1:1). Las estadísticas se calculan en una `$transaction` de lecturas: reservas por estado (`groupBy`), ingresos total y promedio de las reservas `ASISTIDA` (`aggregate`) y los 3 clientes que más gastaron.
