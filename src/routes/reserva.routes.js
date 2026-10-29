@@ -9,5 +9,6 @@ router.use(authenticateToken);
 router.post("/", reservaController.create);
 router.get("/", reservaController.listMine);
 router.patch("/:id/cancelar", reservaController.cancel);
+router.get("/:id/historial", reservaController.historial);
 
 module.exports = router;

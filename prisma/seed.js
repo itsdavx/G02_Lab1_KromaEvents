@@ -3,13 +3,33 @@ require("dotenv").config();
 const bcrypt = require("bcryptjs");
 const prisma = require("../src/db/prisma"); // el mismo cliente (con adaptador) que usa la API
 
-const reservar = (evento, clienteId, cantidad, estado) =>
+const pasos = (estado, adminId, clienteUserId) => {
+  const confirmar = { estadoAnterior: "PENDIENTE", estadoNuevo: "CONFIRMADA", nota: "Pago verificado", cambiadoPorId: adminId };
+  if (estado === "CONFIRMADA") return [confirmar];
+  if (estado === "ASISTIDA")
+    return [
+      confirmar,
+      { estadoAnterior: "CONFIRMADA", estadoNuevo: "ASISTIDA", nota: "Asistencia registrada en la entrada", cambiadoPorId: adminId },
+    ];
+  if (estado === "CANCELADA")
+    return [{ estadoAnterior: "PENDIENTE", estadoNuevo: "CANCELADA", nota: "Cancelada por el cliente", cambiadoPorId: clienteUserId }];
+  return [];
+};
+
+const reservar = (evento, usuario, cantidad, estado, adminId) =>
   prisma.evento.update({
     where: { id: evento.id },
     data: {
       cuposDisponibles: { decrement: estado === "CANCELADA" ? 0 : cantidad },
       reservas: {
-        create: { clienteId, cantidad, precioUnitario: evento.precio, total: evento.precio.mul(cantidad), estado },
+        create: {
+          clienteId: usuario.cliente.id,
+          cantidad,
+          precioUnitario: evento.precio,
+          total: evento.precio.mul(cantidad),
+          estado,
+          historial: { create: pasos(estado, adminId, usuario.id) },
+        },
       },
     },
   });
@@ -60,7 +80,7 @@ async function main() {
     ],
   });
 
-  await prisma.user.create({
+  const admin = await prisma.user.create({
     data: {
       email: "admin@kromaevents.com",
       password: await bcrypt.hash("Admin123*", 10),
@@ -92,11 +112,11 @@ async function main() {
   const taller = await prisma.evento.findUnique({ where: { nombre: "Taller de Fotografía Urbana" } });
   const jazz = await prisma.evento.findUnique({ where: { nombre: "Noche de Jazz KromaEvents" } });
 
-  await reservar(concierto, ana.cliente.id, 2, "CONFIRMADA");
-  await reservar(feria, carlos.cliente.id, 4, "PENDIENTE");
-  await reservar(taller, carlos.cliente.id, 1, "CANCELADA");
-  await reservar(jazz, ana.cliente.id, 2, "ASISTIDA");
-  await reservar(jazz, carlos.cliente.id, 1, "ASISTIDA");
+  await reservar(concierto, ana, 2, "CONFIRMADA", admin.id);
+  await reservar(feria, carlos, 4, "PENDIENTE", admin.id);
+  await reservar(taller, carlos, 1, "CANCELADA", admin.id);
+  await reservar(jazz, ana, 2, "ASISTIDA", admin.id);
+  await reservar(jazz, carlos, 1, "ASISTIDA", admin.id);
 
   const categorias = [
     { nombre: "Música", eventos: [concierto, jazz] },
