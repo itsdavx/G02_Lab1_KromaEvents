@@ -15,7 +15,7 @@ const updateReservaEstado = async (req, res, next) => {
   try {
     const id = Number.parseInt(req.params.id, 10);
     if (Number.isNaN(id)) throw new HttpError(400, "El id debe ser numérico");
-    res.json(await adminService.updateReservaEstado(id, req.body?.estado));
+    res.json(await adminService.updateReservaEstado(req.user.id, id, req.body ?? {}));
   } catch (err) {
     next(err);
   }

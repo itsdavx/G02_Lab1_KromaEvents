@@ -70,33 +70,47 @@ const listReservas = async ({ estado, eventoId, from, to, page, limit }) => {
   return { page: pagina, limit: take, total, pages: Math.ceil(total / take), data };
 };
 
-const updateReservaEstado = async (id, estado) => {
+const TRANSICIONES = {
+  PENDIENTE: ["CONFIRMADA", "CANCELADA"],
+  CONFIRMADA: ["ASISTIDA", "CANCELADA"],
+  ASISTIDA: [],
+  CANCELADA: [],
+};
+
+const updateReservaEstado = async (adminId, id, { estado, nota } = {}) => {
   if (estado === undefined) throw new HttpError(400, "Envía el nuevo estado");
   const nuevo = parseEstado(estado);
+  if (nota !== undefined && nota !== null && (typeof nota !== "string" || nota.length > 200))
+    throw new HttpError(400, "nota debe ser un texto de máximo 200 caracteres");
 
   return prisma.$transaction(async (tx) => {
     const reserva = await tx.reserva.findUnique({ where: { id } });
     if (!reserva) throw new HttpError(404, "Reserva no encontrada");
-
-    if (nuevo === "CANCELADA" && reserva.estado !== "CANCELADA") {
-      await tx.evento.update({
-        where: { id: reserva.eventoId },
-        data: { cuposDisponibles: { increment: reserva.cantidad } },
-      });
-    }
-    if (nuevo !== "CANCELADA" && reserva.estado === "CANCELADA") {
-      const { count } = await tx.evento.updateMany({
-        where: { id: reserva.eventoId, cuposDisponibles: { gte: reserva.cantidad } },
-        data: { cuposDisponibles: { decrement: reserva.cantidad } },
-      });
-      if (count === 0) throw new HttpError(409, "Cupos insuficientes para reactivar la reserva");
-    }
+    if (!TRANSICIONES[reserva.estado].includes(nuevo))
+      throw new HttpError(409, `No se puede pasar de ${reserva.estado} a ${nuevo}`);
 
     const { count } = await tx.reserva.updateMany({
       where: { id, estado: reserva.estado },
       data: { estado: nuevo },
     });
     if (count === 0) throw new HttpError(409, "La reserva cambió mientras se actualizaba, intenta de nuevo");
+
+    if (nuevo === "CANCELADA") {
+      await tx.evento.update({
+        where: { id: reserva.eventoId },
+        data: { cuposDisponibles: { increment: reserva.cantidad } },
+      });
+    }
+
+    await tx.reservaHistorial.create({
+      data: {
+        reservaId: id,
+        estadoAnterior: reserva.estado,
+        estadoNuevo: nuevo,
+        nota: nota?.trim() || null,
+        cambiadoPorId: adminId,
+      },
+    });
 
     return tx.reserva.findUnique({ where: { id }, include: adminInclude });
   });

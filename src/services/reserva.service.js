@@ -95,8 +95,44 @@ const cancel = async (userId, reservaId) => {
       where: { id: reserva.eventoId },
       data: { cuposDisponibles: { increment: reserva.cantidad } },
     });
+    await tx.reservaHistorial.create({
+      data: {
+        reservaId,
+        estadoAnterior: "PENDIENTE",
+        estadoNuevo: "CANCELADA",
+        nota: "Cancelada por el cliente",
+        cambiadoPorId: userId,
+      },
+    });
     return tx.reserva.findUnique({ where: { id: reservaId }, include: reservaInclude });
   });
 };
 
-module.exports = { create, listByUser, cancel };
+const historial = async (user, reservaId) => {
+  const reserva = await prisma.reserva.findUnique({
+    where: { id: reservaId },
+    select: {
+      id: true,
+      estado: true,
+      cliente: { select: { userId: true } },
+      historial: {
+        select: {
+          id: true,
+          estadoAnterior: true,
+          estadoNuevo: true,
+          nota: true,
+          createdAt: true,
+          cambiadoPor: { select: { id: true, name: true } },
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+      },
+    },
+  });
+  if (!reserva) throw new HttpError(404, "Reserva no encontrada");
+  if (user.role !== "ADMIN" && reserva.cliente.userId !== user.id)
+    throw new HttpError(403, "La reserva no pertenece al usuario");
+
+  return { reservaId: reserva.id, estado: reserva.estado, historial: reserva.historial };
+};
+
+module.exports = { create, listByUser, cancel, historial };
