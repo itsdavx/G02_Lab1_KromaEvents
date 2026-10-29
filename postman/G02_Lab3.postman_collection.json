@@ -2005,6 +2005,926 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Taller · B · Laura Quiroz",
+      "item": [
+        {
+          "name": "B1. Crear categoría como ADMIN (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{categoriaNombre}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"201 Created\", () => pm.response.to.have.status(201));",
+                  "const r = pm.response.json();",
+                  "pm.collectionVariables.set(\"categoriaId\", r.id);",
+                  "pm.test(\"Devuelve id y nombre\", () => { pm.expect(r.id).to.be.a(\"number\"); pm.expect(r.nombre).to.eql(pm.collectionVariables.get(\"categoriaNombre\")); });"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"categoriaNombre\", `Teatro ${Date.now()}`);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B2. Categoría duplicada, sin importar mayúsculas (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"{{categoriaNombreMayus}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"409 Conflict\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"Ya existe una categoría\"));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"categoriaNombreMayus\", pm.collectionVariables.get(\"categoriaNombre\").toUpperCase());"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B3. Nombre vacío (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"   \"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"nombre\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B4. Crear categoría sin token (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sin token\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"falta el token\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B5. Crear categoría como USER (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"No permitido\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"403 Forbidden\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"permisos\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B6. Listar categorías con número de eventos (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const lista = pm.response.json();",
+                  "const musica = lista.find((c) => c.nombre === \"Música\");",
+                  "pm.collectionVariables.set(\"categoriaMusicaId\", musica.id);",
+                  "pm.test(\"Cada categoría trae _count.eventos\", () => lista.forEach((c) => pm.expect(c._count.eventos).to.be.a(\"number\")));",
+                  "pm.test(\"Música agrupa al menos 2 eventos del seed\", () => pm.expect(musica._count.eventos).to.be.at.least(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B7. Asignar categorías a un evento con set (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [{{categoriaId}}, {{categoriaMusicaId}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"El evento queda con exactamente 2 categorías\", () => { pm.expect(r.id).to.eql(pm.collectionVariables.get(\"eventoId\")); pm.expect(r.categorias.map((c) => c.id)).to.have.members([pm.collectionVariables.get(\"categoriaId\"), pm.collectionVariables.get(\"categoriaMusicaId\")]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B8. categoriaIds no es un arreglo de enteros (400)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [1, \"dos\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"categoriaIds\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B9. Categoría inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [999999]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 Not Found\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"Categoría no encontrada\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B10. Evento inexistente (404)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/999999/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "999999",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [{{categoriaId}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 Not Found\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"Evento no encontrado\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B11. Asignar categorías sin token (401)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [{{categoriaId}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401 Unauthorized\", () => pm.response.to.have.status(401));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"falta el token\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B12. Asignar categorías como USER (403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/{{eventoId}}/categorias",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "{{eventoId}}",
+                "categorias"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"categoriaIds\": [{{categoriaId}}]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"403 Forbidden\", () => pm.response.to.have.status(403));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"permisos\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B13. Buscar con filtros combinados (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/buscar?q=CONCIERTO&categoria={{categoriaNombre}}&min=1&max=10&sort=precio_asc&page=1&limit=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "CONCIERTO"
+                },
+                {
+                  "key": "categoria",
+                  "value": "{{categoriaNombre}}"
+                },
+                {
+                  "key": "min",
+                  "value": "1"
+                },
+                {
+                  "key": "max",
+                  "value": "10"
+                },
+                {
+                  "key": "sort",
+                  "value": "precio_asc"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Respuesta paginada\", () => pm.expect(r).to.include.keys(\"page\", \"limit\", \"total\", \"pages\", \"data\"));",
+                  "pm.test(\"Encuentra solo el evento de la categoría nueva\", () => { pm.expect(r.total).to.eql(1); pm.expect(r.data[0].id).to.eql(pm.collectionVariables.get(\"eventoId\")); });",
+                  "pm.test(\"Cada resultado incluye sus categorías\", () => pm.expect(r.data[0].categorias).to.be.an(\"array\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B14. Buscar ordenado por precio descendente (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/buscar?sort=precio_desc&page=1&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "precio_desc"
+                },
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Respuesta paginada\", () => pm.expect(r).to.include.keys(\"page\", \"limit\", \"total\", \"pages\", \"data\"));",
+                  "pm.test(\"Precios de mayor a menor\", () => { const p = r.data.map((e) => Number(e.precio)); pm.expect(p).to.eql([...p].sort((a, b) => b - a)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B15. Buscar con sort inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/buscar?sort=fecha",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "sort",
+                  "value": "fecha"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"sort debe ser uno de\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B16. Buscar con rango de precio inválido (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/eventos/buscar?min=20&max=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "eventos",
+                "buscar"
+              ],
+              "query": [
+                {
+                  "key": "min",
+                  "value": "20"
+                },
+                {
+                  "key": "max",
+                  "value": "5"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"min no puede ser mayor\"));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B17. Reto: eventos de una categoría (200)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias/{{categoriaMusicaId}}/eventos?page=1&limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias",
+                "{{categoriaMusicaId}}",
+                "eventos"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test(\"Respuesta paginada\", () => pm.expect(r).to.include.keys(\"page\", \"limit\", \"total\", \"pages\", \"data\"));",
+                  "pm.test(\"Es la categoría Música e incluye el evento asignado\", () => { pm.expect(r.nombre).to.eql(\"Música\"); pm.expect(r.data.map((e) => e.id)).to.include(pm.collectionVariables.get(\"eventoId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B18. Reto: categoría inexistente (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/categorias/999999/eventos",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "categorias",
+                "999999",
+                "eventos"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"404 Not Found\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Mensaje de error claro\", () => pm.expect(pm.response.json().error).to.include(\"Categoría no encontrada\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [
@@ -2062,6 +2982,22 @@
     },
     {
       "key": "comentarioLargo",
+      "value": ""
+    },
+    {
+      "key": "categoriaNombre",
+      "value": ""
+    },
+    {
+      "key": "categoriaNombreMayus",
+      "value": ""
+    },
+    {
+      "key": "categoriaId",
+      "value": ""
+    },
+    {
+      "key": "categoriaMusicaId",
       "value": ""
     }
   ]

@@ -98,11 +98,26 @@ async function main() {
   await reservar(jazz, ana.cliente.id, 2, "ASISTIDA");
   await reservar(jazz, carlos.cliente.id, 1, "ASISTIDA");
 
+  const categorias = [
+    { nombre: "Música", eventos: [concierto, jazz] },
+    { nombre: "Gastronomía", eventos: [feria] },
+    { nombre: "Talleres", eventos: [taller] },
+    { nombre: "Cultura", eventos: [concierto, feria, jazz] },
+  ];
+  for (const { nombre, eventos } of categorias) {
+    await prisma.categoria.create({
+      data: { nombre, eventos: { connect: eventos.map((e) => ({ id: e.id })) } },
+    });
+  }
+
   const eventos = await prisma.evento.count();
   const clientes = await prisma.cliente.count();
   const usuarios = await prisma.user.count();
   const reservas = await prisma.reserva.count();
-  console.log(`Seed completado: ${eventos} eventos, ${clientes} clientes, ${usuarios} usuarios y ${reservas} reservas`);
+  const totalCategorias = await prisma.categoria.count();
+  console.log(
+    `Seed completado: ${eventos} eventos, ${clientes} clientes, ${usuarios} usuarios, ${reservas} reservas y ${totalCategorias} categorías`
+  );
 }
 
 main()

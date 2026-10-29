@@ -353,10 +353,11 @@ Modelo: `Resena` (tabla `resenas`) con relación 1:N hacia `User` y 1:N hacia `E
 |---|---|---|---|---|
 | POST | /api/categorias | ADMIN | `{ nombre }` | 201 categoría · 400 nombre vacío o > 50 · 401 · 403 · 409 duplicada |
 | GET | /api/categorias | Público | — | 200 `[ { id, nombre, _count: { eventos } } ]` |
-| PUT | /api/eventos/:id/categorias | ADMIN | `{ categoriaIds: [1, 2] }` | 200 evento con sus categorías · 400 no es arreglo de enteros · 401 · 403 · 404 evento o categoría inexistente |
+| PUT | /api/eventos/:id/categorias | ADMIN | `{ categoriaIds: [1, 2] }` | 200 evento con sus categorías · 400 no es arreglo de enteros o id no numérico · 401 · 403 · 404 evento o categoría inexistente |
 | GET | /api/eventos/buscar | Público | — (query: `q`, `categoria`, `min`, `max`, `sort` = `precio_asc`, `precio_desc` o `nombre`, `page`, `limit`) | 200 `{ page, limit, total, pages, data }` · 400 sort o rango de precio inválido |
+| GET | /api/categorias/:id/eventos | Público | — (query: `page`, `limit`) | 200 `{ categoriaId, nombre, page, limit, total, pages, data }` · 400 id no numérico · 404 categoría |
 
-Modelo: `Categoria` (tabla `categorias`) con relación N:M implícita con `Evento`; Prisma crea la tabla intermedia `_CategoriaToEvento`. `nombre` es único. Las categorías de un evento se reemplazan con `set`. La búsqueda combina `contains` sin distinguir mayúsculas, la relación con `some`, rango de precio, orden dinámico y paginación. `/buscar` se declara antes de `/:id`.
+Modelo: `Categoria` (tabla `categorias`) con relación N:M implícita con `Evento`; Prisma crea la tabla intermedia `_CategoriaToEvento`. `nombre` es único. Las categorías de un evento se reemplazan con `set`. La búsqueda combina `contains` sin distinguir mayúsculas, la relación con `some`, rango de precio, orden dinámico y paginación. `/buscar` se declara antes de `/:id`. El nombre de la categoría tampoco distingue mayúsculas (`Música` y `música` se consideran duplicadas). Reto opcional: `GET /api/categorias/:id/eventos` con paginación.
 
 ## Taller · Tarjeta C · Flujo de estados con historial · Villa Andrango José Daniel
 
