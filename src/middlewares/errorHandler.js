@@ -1,4 +1,5 @@
 const { Prisma } = require("@prisma/client");
+const mongoose = require("mongoose");
 
 // Traduce los errores conocidos de Prisma a códigos HTTP
 const fromPrisma = (err) => {
@@ -15,8 +16,20 @@ const fromPrisma = (err) => {
   return null;
 };
 
+// Traduce los errores de Mongoose: un mensaje por cada campo que falló
+const fromMongoose = (err) => {
+  if (err instanceof mongoose.Error.ValidationError) {
+    const errors = Object.entries(err.errors).map(([campo, e]) => ({ campo, mensaje: e.message }));
+    return { status: 400, body: { error: "Datos inválidos", errors } };
+  }
+  if (err instanceof mongoose.Error.CastError) return { status: 400, body: { error: `${err.path} tiene un tipo inválido` } };
+  return null;
+};
+
 // Manejador de errores: 4 parámetros. Responde siempre en JSON.
 const errorHandler = (err, req, res, next) => {
+  const mongo = fromMongoose(err);
+  if (mongo) return res.status(mongo.status).json(mongo.body);
   const mapped = fromPrisma(err);
   // JSON mal formado en el body → 400
   const status = mapped?.status ?? (err.type === "entity.parse.failed" ? 400 : err.status || 500);
