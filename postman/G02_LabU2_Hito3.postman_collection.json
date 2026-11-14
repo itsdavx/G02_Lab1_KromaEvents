@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "G02_LabU2_Hito3",
+    "description": "Laboratorio U2 · Hito 3 · KromaEvents. POST /api/agendas en MongoDB con Mongoose: 1 documento válido (201) y 2 inválidos (400 con un mensaje por campo).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01 · POST válido → 201",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"201 Created\", () => pm.response.to.have.status(201));",
+              "const r = pm.response.json();",
+              "pm.test(\"Tiene _id de MongoDB\", () => pm.expect(r._id).to.match(/^[a-f0-9]{24}$/));",
+              "pm.test(\"El virtual horario aparece en la respuesta\", () => pm.expect(r.horario).to.eql(\"19:00 - 21:30\"));",
+              "pm.test(\"pre(validate) ordenó las actividades por hora\", () => pm.expect(r.actividades.map((a) => a.hora)).to.eql([\"19:00\", \"20:00\", \"21:30\"]));",
+              "pm.test(\"pre(validate) normalizó las etiquetas (minúsculas y sin repetir)\", () => pm.expect(r.etiquetas).to.eql([\"jazz\", \"música en vivo\"]));",
+              "pm.test(\"El contacto se guarda en minúsculas\", () => pm.expect(r.contacto).to.eql(\"jazz@kromaevents.com\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventoId\": 4,\n  \"titulo\": \"Programa Noche de Jazz\",\n  \"tipo\": \"concierto\",\n  \"edadMinima\": 18,\n  \"contacto\": \"Jazz@KromaEvents.com\",\n  \"actividades\": [\n    { \"hora\": \"21:30\", \"titulo\": \"Cierre con jam session\" },\n    { \"hora\": \"19:00\", \"titulo\": \"Apertura de puertas\" },\n    { \"hora\": \"20:00\", \"titulo\": \"Cuarteto Kroma\" }\n  ],\n  \"etiquetas\": [\"Jazz\", \" jazz \", \"Música en vivo\"]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/{{recurso}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{recurso}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "02 · POST vacío → 400 con mensajes de required",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+              "const errors = pm.response.json().errors;",
+              "pm.test(\"Trae un mensaje por campo\", () => pm.expect(errors).to.be.an(\"array\").that.is.not.empty);",
+              "const msg = (campo) => (errors.find((e) => e.campo === campo) || {}).mensaje;",
+              "pm.test(\"Mensajes de los campos obligatorios\", () => {",
+              "  pm.expect(msg(\"eventoId\")).to.eql(\"El evento es obligatorio\");",
+              "  pm.expect(msg(\"titulo\")).to.eql(\"El título de la agenda es obligatorio\");",
+              "  pm.expect(msg(\"tipo\")).to.eql(\"El tipo de evento es obligatorio\");",
+              "  pm.expect(msg(\"contacto\")).to.eql(\"El correo de contacto es obligatorio\");",
+              "});",
+              "pm.test(\"Validación propia: al menos una actividad\", () => pm.expect(msg(\"actividades\")).to.eql(\"La agenda debe tener al menos una actividad\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/{{recurso}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{recurso}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "03 · POST inválido → 400 (enum, rango, match, validación propia)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"400 Bad Request\", () => pm.response.to.have.status(400));",
+              "const errors = pm.response.json().errors;",
+              "const msg = (campo) => (errors.find((e) => e.campo === campo) || {}).mensaje;",
+              "pm.test(\"enum: tipo no permitido\", () => pm.expect(msg(\"tipo\")).to.eql(\"fiesta no es un tipo válido (concierto, taller, feria o conferencia)\"));",
+              "pm.test(\"min/max: edadMinima fuera de rango\", () => pm.expect(msg(\"edadMinima\")).to.eql(\"La edad mínima no puede ser mayor a 21\"));",
+              "pm.test(\"minlength: título muy corto\", () => pm.expect(msg(\"titulo\")).to.eql(\"El título debe tener al menos 5 caracteres\"));",
+              "pm.test(\"match: hora con formato inválido\", () => pm.expect(msg(\"actividades.0.hora\")).to.eql(\"La hora debe tener el formato HH:MM (24 horas)\"));",
+              "pm.test(\"Validación propia: correo inválido\", () => pm.expect(msg(\"contacto\")).to.eql(\"no-es-correo no es un correo válido\"));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventoId\": 1,\n  \"titulo\": \"Prog\",\n  \"tipo\": \"fiesta\",\n  \"edadMinima\": 30,\n  \"contacto\": \"no-es-correo\",\n  \"actividades\": [\n    { \"hora\": \"25:00\", \"titulo\": \"Bienvenida\" }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/{{recurso}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "{{recurso}}"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "recurso",
+      "value": "agendas"
+    }
+  ]
+}
