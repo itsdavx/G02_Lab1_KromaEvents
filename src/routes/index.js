@@ -6,6 +6,7 @@ const adminRoutes = require("./admin.routes");
 const resenaRoutes = require("./resena.routes");
 const categoriaRoutes = require("./categoria.routes");
 const meRoutes = require("./me.routes");
+const agendaRoutes = require("./agenda.routes");
 
 // Monta cada recurso bajo su prefijo dentro de /api
 const router = Router();
@@ -17,5 +18,6 @@ router.use("/admin", adminRoutes);
 router.use("/resenas", resenaRoutes);
 router.use("/categorias", categoriaRoutes);
 router.use("/me", meRoutes);
+router.use("/agendas", agendaRoutes); // Unidad 2 · MongoDB
 
 module.exports = router;
