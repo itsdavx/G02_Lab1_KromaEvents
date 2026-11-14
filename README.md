@@ -396,3 +396,97 @@ Importa `postman/G02_Taller.postman_collection.json` (101 peticiones, 208 prueba
 - Herramienta(s) usada(s): Claude
 - Para qué la usamos: Redaccion del README.md
 - Qué verificamos o corregimos nosotros: Nos aseguramos que tenga exactamente lo que hicimos y no se invente cosas.
+
+---
+
+# Lab U2 · Parte 1 · KromaEvents pasa a MongoDB (hitos 1 a 3)
+
+| Dato | Valor |
+|---|---|
+| Herramientas | Docker · MongoDB 8 · MongoDB Compass · MongoDB for VS Code · Mongoose 9.11.4 · validator 13.15.35 · Postman |
+| Colección NoSQL | `agendas` (programa de cada evento, con sus actividades embebidas) |
+| Etiquetas | `u2-hito-1`, `u2-hito-2`, `u2-hito-3` |
+
+PostgreSQL + Prisma siguen igual (usuarios, eventos, reservas, reseñas y categorías). Se **agrega** MongoDB + Mongoose para la agenda de cada evento, que guarda solo el `eventoId` de PostgreSQL.
+
+## Cómo ejecutar
+
+```bash
+npm install
+cp .env.example .env      # en Windows: copy .env.example .env  (incluye MONGODB_URI con authSource=admin)
+docker compose up -d      # PostgreSQL 17 y MongoDB 8
+npx prisma migrate deploy
+npx prisma db seed
+npm run dev               # debe decir: PostgreSQL y MongoDB conectados
+```
+
+`server.js` conecta primero PostgreSQL y luego MongoDB (`src/db/mongo.js`); solo si ambos responden llama a `listen`.
+
+## Hitos
+
+| Hito | Archivos | Qué contiene |
+|---|---|---|
+| 1 | `docs/u2/hito1.md` | 3 datos → tipo NoSQL → razón, colección `agendas` con JSON de ejemplo y qué se queda en PostgreSQL |
+| 2 | `docs/u2/hito2.md`, `docs/u2/grupo02.mongodb.js` | Workload, embeber/referenciar, ER de MongoDB; playground con `$jsonSchema` (enum, rango y arreglo), 2 inserts válidos, 2 rechazados y `$lookup` con `ponentes` |
+| 3 | `src/models/agenda.js` y capas | Modelo Mongoose y `POST /api/agendas` |
+
+## Hito 3 · POST /api/agendas
+
+Capas: `routes/agenda.routes.js` → `controllers/agenda.controller.js` → `services/agenda.service.js` → `models/agenda.js`, montado en `routes/index.js`.
+
+| Método | Ruta | Body | Respuestas |
+|---|---|---|---|
+| POST | /api/agendas | `{ eventoId, titulo, tipo, edadMinima?, contacto, actividades: [{ hora, titulo, ponenteId? }], etiquetas? }` | 201 documento con el virtual `horario` · 400 `{ error, errors: [{ campo, mensaje }] }` |
+
+| Regla del esquema | Campo | Mensaje |
+|---|---|---|
+| required | eventoId, titulo, tipo, contacto, actividades.hora, actividades.titulo | «El evento es obligatorio», «El título de la agenda es obligatorio»… |
+| enum | tipo | «fiesta no es un tipo válido (concierto, taller, feria o conferencia)» |
+| min / max | eventoId ≥ 1, edadMinima 0–21 | «La edad mínima no puede ser mayor a 21» |
+| minlength / maxlength | titulo 5–120 | «El título debe tener al menos 5 caracteres» |
+| match | actividades.hora (HH:MM) | «La hora debe tener el formato HH:MM (24 horas)» |
+| Validación propia | contacto (`validator.isEmail`) y actividades (al menos 1) | «no-es-correo no es un correo válido», «La agenda debe tener al menos una actividad» |
+
+- **Virtual** `horario`: no se guarda; se calcula con la primera y la última actividad (`"19:00 - 21:30"`).
+- **`pre("validate")`** (sin `next`): pasa las etiquetas a minúsculas sin repetir y ordena las actividades por hora.
+- **Middleware de Express** (`src/middlewares/errorHandler.js`): convierte el `ValidationError` de Mongoose en 400 con un mensaje por campo. **Middleware de Mongoose** (`pre("validate")` en `src/models/agenda.js`): trabaja con el documento (`this`).
+
+## Pruebas en Postman
+
+Importa `postman/G02_LabU2_Hito3.postman_collection.json` (variables `baseUrl` y `recurso = agendas`), selecciona **No Environment** y ejecuta **Run collection**: 3 peticiones, 16 pruebas (1 POST válido y 2 inválidos).
+
+## Capturas de esta actividad (Lab U2 · Parte 1)
+
+Las dos están en `docs/u2/`:
+
+| Captura | Archivo | Qué muestra |
+|---|---|---|
+| Postman | `docs/u2/postman-hito3.png` | *Run collection* de `G02_LabU2_Hito3`: 01 válido → 201, 02 y 03 inválidos → 400; 16 pruebas aprobadas y 0 fallidas |
+| MongoDB Compass | `docs/u2/compass-agendas.png` | Base `kromaevents` → colección `agendas` con los documentos creados por el `POST` (incluye actividades y etiquetas ya normalizadas por el `pre("validate")`) |
+
+## Pruebas automáticas
+
+```bash
+npm test      # node:test, sin dependencias extra: 37 pruebas
+```
+
+| Archivo | Qué prueba |
+|---|---|
+| `tests/agenda.model.test.js` | El esquema sin base de datos: required, enum, min/max, minlength/maxlength, match y validaciones propias con sus mensajes; el virtual `horario` y el `pre("validate")` |
+| `tests/agenda.capas.test.js` | Cada capa por separado con mocks: servicio → `Agenda.create`, controlador 201 y `next(err)`, `errorHandler` (400 por campo), rutas montadas y `connectMongo` con `MONGODB_URI` |
+| `tests/agenda.api.test.js` | Integración: `POST /api/agendas` contra MongoDB real en una base temporal `kromaevents_test` (201, 400 y JSON mal formado). Se omite si Mongo no está levantado |
+
+## Aporte de cada integrante (Lab U2 · Parte 1)
+
+| Integrante | Qué hizo |
+|---|---|
+| (Parte 1) | **Hito 1 y Docker.** `docs/u2/hito1.md`, servicio `mongo` en `docker-compose.yml` y `MONGODB_URI` en `.env.example`. |
+| (Parte 2) | **Hito 2.** `docs/u2/hito2.md` (workload, embeber/referenciar, ER) y playground `docs/u2/grupo02.mongodb.js`. |
+| (Parte 3) | **Hito 3 · código.** Conexión `src/db/mongo.js`, `server.js`, modelo `agenda.js` y capas ruta → controlador → servicio, error 400 por campo. |
+| (Parte 4) | **Hito 3 · pruebas y entrega.** Colección Postman, pruebas automáticas (`tests/`), capturas de Postman y Compass (`docs/u2/`) y esta sección del README. |
+
+## Declaración de uso de IA (Lab U2 · Parte 1)
+
+- Herramienta(s) usada(s): Claude (Anthropic)
+- Para qué la usamos: (completar)
+- Qué verificamos o corregimos nosotros: (completar)
