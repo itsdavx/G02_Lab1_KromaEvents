@@ -422,6 +422,8 @@ npm run dev               # debe decir: PostgreSQL y MongoDB conectados
 
 `server.js` conecta primero PostgreSQL y luego MongoDB (`src/db/mongo.js`); solo si ambos responden llama a `listen`.
 
+**Con MongoDB Atlas** (en lugar del contenedor `mongo`): en `.env` usa la `MONGODB_URI` de Atlas que está comentada en `.env.example`, con tu usuario y contraseña (nunca la subas al repo). En el despliegue va en las variables del servicio. En Atlas → *Network Access* debe estar permitida la IP desde la que se conecta.
+
 ## Hitos
 
 | Hito | Archivos | Qué contiene |
